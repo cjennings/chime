@@ -944,13 +944,13 @@ For Monday-Friday events, you can either:
 
     ;; Modeline display - compact format
     (setq chime-enable-modeline t)
-    (setq chime-modeline-lookahead-minutes 120)                 ; Show events 2 hrs ahead
-    (setq chime-modeline-format " ⏰%s")                ; Minimal prefix
-    (setq chime-notification-text-format "%t (%u)")    ; Title + countdown only
-    (setq chime-display-time-format-string "%H:%M")    ; 24-hour time
-    (setq chime-time-left-format-short "in %mm")       ; Compact: "in 5m"
-    (setq chime-time-left-format-long "%hh%mm")        ; Compact: "1h30m"
-    (setq chime-time-left-format-at-event "NOW!")      ; Custom at-event message
+    (setq chime-modeline-lookahead-minutes 120)    ; Show events 2 hrs ahead
+    (setq chime-modeline-format " ⏰%s")           ; Minimal prefix
+    (setq chime-notification-text-format "%t (%u)") ; Title + countdown only
+    (setq chime-display-time-format-string "%H:%M") ; 24-hour time
+    (setq chime-time-left-format-short "in %mm")   ; Compact: "in 5m"
+    (setq chime-time-left-format-long "%hh%mm")    ; Compact: "1h30m"
+    (setq chime-time-left-format-at-event "NOW!")  ; Custom at-event message
 
     ;; Notification settings
     (setq chime-notification-title "Reminder")
