@@ -6,7 +6,7 @@
 ;; Version: 1.0.0
 ;; Package-Requires: ((emacs "27.1") (org "9.0"))
 ;; Keywords: calendar, org-mode
-;; URL: https://github.com/cjennings/chime.el
+;; URL: https://github.com/cjennings/chime
 
 ;; This program is free software: you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by

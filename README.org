@@ -1,5 +1,5 @@
 
-* *CHIME Heralds Imminent Events*
+* *CHIME Heralds Imminent Modeline Events*
 
 Customizable org notifications for Emacs with visual alerts, audible chimes, and modeline display.
 
@@ -27,7 +27,7 @@ Customizable org notifications for Emacs with visual alerts, audible chimes, and
 :CUSTOM_ID: about
 :END:
 
-CHIME (backronym: *CHIME Heralds Imminent Events*) provides notification support for your org-agenda events. Get visual notifications, a pleasant chime sound, and see your next upcoming event in your modeline.
+CHIME (backronym: *CHIME Heralds Imminent Modeline Events*) provides notification support for your org-agenda events. Get visual notifications, a pleasant chime sound, and see your next upcoming event in your modeline.
 
 This is an updated and maintained fork of the abandoned [[https://github.com/akhramov/org-wild-notifier.el][org-wild-notifier]] project, renamed to CHIME with bug-fixes and new features.
 
@@ -39,7 +39,8 @@ Note: while I've found this package to be quite reliable, it's still undergoing 
 :END:
 
 - *Visual notifications* with customizable alert times
-- *Audible chime sound* when notifications are displayed
+- *Audible chime sound* when notifications are displayed (bundled WAV or custom file)
+- *Customizable notification icon* for desktop notifications
 - *Interactive modeline display* of next upcoming event with extensive customization:
   - Enable/disable modeline modifications
   - Hover tooltip showing all upcoming events grouped by day
@@ -52,8 +53,14 @@ Note: while I've found this package to be quite reliable, it's still undergoing 
 - Works with SCHEDULED and DEADLINE and just plain ol' regular timestamps
 - Supports repeating timestamps (=+1w=, =.+1d=, =++1w=)
 - Async background checking (runs every minute)
-- Configurable notification filtering by keywords and tags
-- [[https://github.com/cjennings/chime.el/tree/main/tests][Well-tested]], including with org-gcal
+- *All-day event support* (birthdays, holidays, multi-day events)
+  - Configurable daily notification times for all-day events
+  - Advance notice (e.g., "Blake's birthday is tomorrow")
+  - Show/hide all-day events in tooltip
+- *org-contacts integration* with birthday conversion and capture template
+- Configurable notification filtering by keywords, tags, and custom predicates
+- Configurable startup delay for async org-agenda-files initialization
+- [[https://github.com/cjennings/chime/tree/main/tests][Well-tested]], including with org-gcal
 
 ** Installation
 :PROPERTIES:
@@ -66,14 +73,14 @@ This package is NOT YET available on MELPA.
 
 #+BEGIN_SRC elisp
 (unless (package-installed-p 'chime)
-  (package-vc-install "https://github.com/cjennings/chime.el"))
+  (package-vc-install "https://github.com/cjennings/chime"))
 #+END_SRC
 
 *** use-package with :vc (Emacs 29+)
 
 #+BEGIN_SRC elisp
 (use-package chime
-  :vc (:url "https://github.com/cjennings/chime.el" :rev :newest)
+  :vc (:url "https://github.com/cjennings/chime" :rev :newest)
   :after alert
   :commands (chime-mode chime-check)
   :bind ("C-c A" . chime-check)
@@ -109,7 +116,7 @@ This package is NOT YET available on MELPA.
 
 #+BEGIN_SRC elisp
 ;; Add to load-path
-(add-to-list 'load-path "~/path/to/chime.el")
+(add-to-list 'load-path "~/path/to/chime")
 
 ;; Load and configure
 (require 'chime)
@@ -125,7 +132,7 @@ Minimal configuration:
 clone the package somewhere, then add 
 
 #+BEGIN_SRC elisp
-  (add-to-list 'load-path  "/path/to/chime.el/")
+  (add-to-list 'load-path  "/path/to/chime/")
   (require 'chime)
 
   ;; Alert intervals: notify 5 minutes before (medium) and at event time (high)
@@ -200,6 +207,33 @@ Control the audible chime that plays when notifications appear:
 
 The package includes a pleasant chime sound in GPL-compatible WAV format. You can use your own sound file if preferred.
 
+*** Notification Icon
+
+Set a custom icon for desktop notifications:
+
+#+BEGIN_SRC elisp
+;; Use a custom notification icon
+(setq chime-notification-icon "/path/to/icon.png")
+
+;; No custom icon (default: nil, uses system default)
+(setq chime-notification-icon nil)
+#+END_SRC
+
+*** Startup Delay
+
+Control how long chime waits before the first event check after enabling =chime-mode=. This allows org-agenda-files and related infrastructure to finish loading:
+
+#+BEGIN_SRC elisp
+;; Default: wait 10 seconds before first check
+(setq chime-startup-delay 10)
+
+;; Faster startup (if you know org is ready)
+(setq chime-startup-delay 5)
+
+;; Increase if you see "found 0 events" messages on startup
+(setq chime-startup-delay 20)
+#+END_SRC
+
 *** Modeline Display
 
 Display your next upcoming event in your modeline:
@@ -218,6 +252,41 @@ Display your next upcoming event in your modeline:
 The modeline will display the soonest event within the lookahead window, formatted as:
 - Default: =⏰ Meeting with Team at 02:30 PM (in 15 minutes)=
 - Updates automatically every minute
+
+**** Minor Mode Lighter
+
+The lighter shown in the modeline when =chime-mode= is active:
+
+#+BEGIN_SRC elisp
+;; Default lighter (bell emoji)
+(setq chime-modeline-lighter " 🔔")
+
+;; Text-based lighter
+(setq chime-modeline-lighter " Chime")
+
+;; Minimal
+(setq chime-modeline-lighter " C")
+#+END_SRC
+
+**** No-Events Text
+
+Control what appears in the modeline when no events are within the lookahead window:
+
+#+BEGIN_SRC elisp
+;; Default: alarm icon
+(setq chime-modeline-no-events-text " ⏰")
+
+;; Muted bell
+(setq chime-modeline-no-events-text " 🔕")
+
+;; Show nothing (clean modeline)
+(setq chime-modeline-no-events-text nil)
+
+;; Custom text
+(setq chime-modeline-no-events-text " No events")
+#+END_SRC
+
+This only applies when events exist beyond the lookahead window. If there are no events at all, the modeline is always empty.
 
 **** Interactive Modeline Features
 
@@ -251,6 +320,21 @@ The tooltip displays up to 5 events by default. Configure the maximum with:
 ;; Show all events in lookahead window (beware -- no limit!)
 (setq chime-modeline-tooltip-max-events nil)
 #+END_SRC
+
+Customize the tooltip header format:
+
+#+BEGIN_SRC elisp
+;; Default: "Upcoming Events as of Tue Nov 04 2025 @ 08:25 PM"
+(setq chime-tooltip-header-format "Upcoming Events as of %a %b %d %Y @ %I:%M %p")
+
+;; 24-hour time
+(setq chime-tooltip-header-format "Upcoming Events as of %a %b %d %Y @ %H:%M")
+
+;; Minimal header
+(setq chime-tooltip-header-format "Events — %a %b %d")
+#+END_SRC
+
+Uses =format-time-string= codes (=%a= weekday, =%b= month, =%d= day, =%Y= year, =%I= 12-hour, =%H= 24-hour, =%M= minutes, =%p= AM/PM).
 
 ***** Tooltip Lookahead Window
 
@@ -517,7 +601,7 @@ SCHEDULED: <2025-10-30 Thu 10:00>
 
 **Notifications:**
 - All-day events can trigger notifications at configured times
-- By default, =chime-day-wide-alert-times= is =nil= (notifications disabled)
+- By default, =chime-day-wide-alert-times= is ='("08:00")= (morning notification)
 - When set, chime will notify you of all-day events happening *today* at those times
 
 **** Configuring All-Day Event Notifications
@@ -531,7 +615,7 @@ To receive notifications for all-day events (like birthdays):
 ;; Multiple notification times
 (setq chime-day-wide-alert-times '("08:00" "17:00"))  ; Morning and evening
 
-;; Disable all-day event notifications (default)
+;; Disable all-day event notifications
 (setq chime-day-wide-alert-times nil)
 #+END_SRC
 
@@ -563,6 +647,39 @@ Control whether overdue TODO items and past events appear alongside all-day even
 - Hides all-day events from past days (prevents old birthday/holiday spam) ✓
 
 Most users want the default (=t=) to catch overdue items. Disable it if you only want to see today's events and don't want past birthdays/holidays cluttering notifications.
+
+**** Advance Notice for All-Day Events
+
+Get notified about all-day events before they happen — useful for birthdays (buying gifts) or conferences (packing, travel):
+
+#+BEGIN_SRC elisp
+;; Only notify on the day of the event (default)
+(setq chime-day-wide-advance-notice nil)
+
+;; Notify 1 day before as well
+(setq chime-day-wide-advance-notice 1)
+;; → "Blake's birthday is tomorrow" at 08:00 the day before
+;; → "Blake's birthday is today" at 08:00 on the day
+
+;; Notify 2 days before
+(setq chime-day-wide-advance-notice 2)
+#+END_SRC
+
+Note: This only affects notifications, not tooltip or modeline display.
+
+**** Showing All-Day Events in Tooltip
+
+Control whether all-day events (birthdays, holidays, etc.) appear in the modeline tooltip:
+
+#+BEGIN_SRC elisp
+;; Show all-day events in tooltip (default: t)
+(setq chime-tooltip-show-all-day-events t)
+
+;; Hide all-day events from tooltip
+(setq chime-tooltip-show-all-day-events nil)
+#+END_SRC
+
+All-day events are never shown in the modeline itself (only timed events appear there). This setting controls only the tooltip display. Notifications are unaffected.
 
 ***** Understanding the Interplay with Alert Times
 
@@ -811,7 +928,7 @@ For Monday-Friday events, you can either:
 
 #+BEGIN_SRC elisp
   (use-package chime
-    :vc (:url "https://github.com/cjennings/chime.el" :rev :newest)
+    :vc (:url "https://github.com/cjennings/chime" :rev :newest)
     :after alert
     :commands (chime-mode chime-check)
     :config
@@ -1028,7 +1145,7 @@ emacs &  # This creates a SECOND chime instance!
 :CUSTOM_ID: testing
 :END:
 
-Chime includes a comprehensive test suite with 339 tests covering all functionality. For detailed information about running tests, test architecture, and development workflows, see [[file:TESTING.org][TESTING.org]].
+Chime includes a comprehensive test suite with 505 tests covering all functionality. For detailed information about running tests, test architecture, and development workflows, see [[file:TESTING.org][TESTING.org]].
 
 Quick start:
 #+BEGIN_SRC bash

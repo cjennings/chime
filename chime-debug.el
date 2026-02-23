@@ -4,7 +4,7 @@
 
 ;; Author: Craig Jennings <c@cjennings.net>
 ;; Keywords: notification alert org org-agenda debug
-;; URL: https://github.com/cjennings/chime.el
+;; URL: https://github.com/cjennings/chime
 
 ;; This program is free software: you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by

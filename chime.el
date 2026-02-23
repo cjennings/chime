@@ -1,4 +1,4 @@
-;;; chime.el --- CHIME Heralds Imminent Events -*- lexical-binding: t -*-
+;;; chime.el --- CHIME Heralds Imminent Modeline Events -*- lexical-binding: t -*-
 
 ;; Copyright (C) 2017 Artem Khramov
 ;; Copyright (C) 2024-2026 Craig Jennings
@@ -9,7 +9,7 @@
 ;; Version: 0.6.0
 ;; Package-Requires: ((alert "1.2") (async "1.9.3") (dash "2.18.0") (emacs "26.1"))
 ;; Keywords: notification alert org org-agenda agenda calendar chime sound
-;; URL: https://github.com/cjennings/chime.el
+;; URL: https://github.com/cjennings/chime
 
 ;; This program is free software: you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -26,7 +26,7 @@
 
 ;;; Commentary:
 
-;; CHIME (CHIME Heralds Imminent Events) - Customizable org-agenda notifications
+;; CHIME (CHIME Heralds Imminent Modeline Events) - Customizable org-agenda notifications
 ;;
 ;; This package provides visual and audible notifications for upcoming org-agenda
 ;; events with modeline display of the next upcoming event.
