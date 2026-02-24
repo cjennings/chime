@@ -1063,8 +1063,8 @@ Returns an alist of (DATE-STRING . EVENTS-LIST)."
             (format "Increase `%s`\nto expand scope.\n\n" increase-var)
             "Left-click: Open calendar")))
 
-(defun chime--propertize-modeline-string (text soonest-event)
-  "Add tooltip and click handlers to modeline TEXT for SOONEST-EVENT.
+(defun chime--propertize-modeline-string (text)
+  "Add tooltip and click handlers to modeline TEXT.
 Left-click opens calendar URL (if set), right-click jumps to event."
   (if (null chime--upcoming-events)
       text
@@ -1073,10 +1073,7 @@ Left-click opens calendar URL (if set), right-click jumps to event."
       ;; Left-click: open calendar URL
       (define-key map [mode-line mouse-1] #'chime--open-calendar-url)
       ;; Right-click: jump to event
-      (define-key map [mode-line mouse-3]
-        (lambda ()
-          (interactive)
-          (chime--jump-to-event soonest-event)))
+      (define-key map [mode-line mouse-3] #'chime--jump-to-first-event)
       (propertize text
                   'help-echo tooltip
                   'mouse-face 'mode-line-highlight
@@ -1206,8 +1203,7 @@ Tooltip shows events within `chime-tooltip-lookahead-hours' hours."
             (if soonest-modeline
                 ;; Show soonest event in modeline
                 (chime--propertize-modeline-string
-                 (format chime-modeline-format (nth 3 soonest-modeline))
-                 (nth 0 soonest-modeline))
+                 (format chime-modeline-format (nth 3 soonest-modeline)))
               ;; Show icon when no event in modeline window
               (when chime-modeline-no-events-text
                 (let ((map (make-sparse-keymap))
