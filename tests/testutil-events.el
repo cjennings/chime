@@ -210,5 +210,62 @@ Example:
          (progn ,@body)
        (test-standard-teardown))))
 
+;;; Config Override Macro
+
+(defmacro with-chime-config (&rest args)
+  "Temporarily override chime config variables for testing.
+ARGS are alternating VARIABLE VALUE pairs, followed by BODY forms.
+
+Expands to a `let' form, so overridden values are automatically restored
+when BODY exits - including on error.  This replaces the manual pattern of
+saving originals to defvars in setup, then restoring them in teardown:
+
+  ;; Before (manual save/restore - error-prone, verbose):
+  ;;   (defvar saved-foo nil)
+  ;;   (setq saved-foo chime-foo)
+  ;;   (setq chime-foo 42)
+  ;;   (unwind-protect (progn ...) (setq chime-foo saved-foo))
+  ;;
+  ;; After (let-binding - automatic, concise):
+  ;;   (with-chime-config chime-foo 42 ...)
+
+Example:
+  (with-chime-config
+    chime-modeline-lookahead-minutes 1440
+    chime-tooltip-lookahead-hours 24
+    (should (= chime-modeline-lookahead-minutes 1440)))"
+  (declare (indent 0))
+  (let ((bindings nil)
+        (body nil)
+        (remaining args))
+    ;; Parse alternating symbol/value pairs until we hit a non-symbol or list
+    (while (and remaining
+                (symbolp (car remaining))
+                (not (null (car remaining)))
+                (cdr remaining))
+      (push (list (pop remaining) (pop remaining)) bindings))
+    (setq body remaining)
+    `(let ,(nreverse bindings)
+       ,@body)))
+
+;;; Org Event File Macro
+
+(defmacro with-org-event-file (events-spec file-var &rest body)
+  "Create temp org file from EVENTS-SPEC, bind path to FILE-VAR, execute BODY.
+Each element of EVENTS-SPEC is (TITLE TIME &optional SCHEDULED-P ALL-DAY-P).
+The temp file is created and cleaned up automatically.
+
+Example:
+  (with-org-event-file
+      ((\"Meeting\" event-time t)
+       (\"Birthday\" bday-time nil t))
+      org-file
+    (setq org-agenda-files (list org-file))
+    ...)"
+  (declare (indent 2))
+  `(let* ((content (test-create-org-events (list ,@events-spec)))
+          (,file-var (chime-create-temp-test-file-with-content content)))
+     ,@body))
+
 (provide 'testutil-events)
 ;;; testutil-events.el ends here
