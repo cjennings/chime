@@ -68,6 +68,9 @@
 
 ;; Declare functions from chime-debug.el (loaded conditionally)
 (declare-function chime-debug-monitor-event-loading "chime-debug")
+(declare-function chime-debug-enable-async-monitoring "chime-debug")
+(declare-function chime--debug-log-async-error "chime-debug")
+(declare-function chime--debug-log-async-complete "chime-debug")
 
 ;;;; Customization Variables
 
