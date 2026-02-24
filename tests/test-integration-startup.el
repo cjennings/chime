@@ -245,6 +245,12 @@ This validates the early-return mechanism works correctly."
 
         ;; Reset validation state so chime-check will validate on next call
         (setq chime--validation-done nil)
+        (setq chime--validation-retry-count 0)
+
+        ;; Clear state from any previous tests so we can verify
+        ;; early return doesn't set these
+        (setq chime--upcoming-events nil)
+        (setq chime-modeline-string nil)
 
         ;; Call chime-check - should return early without error
         ;; Before the fix, this would throw: (no-catch --cl-block-chime-check-- nil)
