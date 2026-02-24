@@ -526,6 +526,15 @@ org-agenda-files is populated at startup)."
            (user-error "chime-startup-delay must be a non-negative integer, got: %s" value))
          (set-default symbol value)))
 
+(defcustom chime-max-consecutive-failures 5
+  "Number of consecutive async failures before displaying a warning.
+When event checks fail this many times in a row, a warning is shown
+via `display-warning'.  The counter resets on any successful check.
+Set to 0 to disable failure warnings."
+  :package-version '(chime . "0.6.0")
+  :group 'chime
+  :type 'integer)
+
 (defcustom chime-debug nil
   "Enable debug functions for troubleshooting chime behavior.
 When non-nil, loads chime-debug.el which provides:
@@ -573,6 +582,10 @@ Set to t to enable debug functions:
 
 (defvar chime--process nil
   "Currently-running async process.")
+
+(defvar chime--consecutive-async-failures 0
+  "Count of consecutive async check failures.
+After `chime-max-consecutive-failures' failures, a warning is displayed.")
 
 (defvar chime--agenda-buffer-name "*chime-agenda*"
   "Name for temporary \\='org-agenda\\=' buffer.")
@@ -1715,6 +1728,18 @@ Handles both regular event notifications and day-wide alerts."
     (mapc 'chime--notify
           (chime-day-wide-notifications events))))
 
+(defun chime--maybe-warn-persistent-failures ()
+  "Warn user if async failures have reached the threshold.
+Shows a warning via `display-warning' when `chime--consecutive-async-failures'
+reaches `chime-max-consecutive-failures'.  Only warns once at the threshold."
+  (when (and (> chime-max-consecutive-failures 0)
+             (= chime--consecutive-async-failures chime-max-consecutive-failures))
+    (display-warning
+     'chime
+     (format "Event checks have failed %d times in a row.\nCheck your org-agenda-files configuration."
+             chime--consecutive-async-failures)
+     :warning)))
+
 (defun chime--fetch-and-process (callback)
   "Asynchronously fetch events from agenda and invoke CALLBACK with them.
 Manages async process state and last-check-time internally.
@@ -1738,22 +1763,25 @@ Does nothing if a check is already in progress."
                               (eq (car events) 'async-signal))
                          (progn
                            ;; Async process returned an error
+                           (cl-incf chime--consecutive-async-failures)
                            (when (featurep 'chime-debug)
                              (chime--debug-log-async-error (cdr events)))
                            (chime--log-silently "Chime: Async error: %s"
                                                (error-message-string (cdr events)))
-                           (message "Chime: Event check failed - see *Messages* for details"))
+                           (chime--maybe-warn-persistent-failures))
                        ;; Success - process events normally
+                       (setq chime--consecutive-async-failures 0)
                        (when (featurep 'chime-debug)
                          (chime--debug-log-async-complete events))
                        (funcall callback events)))
                  (error
                   ;; Error occurred in callback processing
+                  (cl-incf chime--consecutive-async-failures)
                   (when (featurep 'chime-debug)
                     (chime--debug-log-async-error err))
                   (chime--log-silently "Chime: Error processing events: %s"
                                       (error-message-string err))
-                  (message "Chime: Error processing events - see *Messages* for details")))))))))
+                  (chime--maybe-warn-persistent-failures)))))))))
 
 (defun chime--log-silently (format-string &rest args)
   "Append formatted message to *Messages* buffer without echoing.
