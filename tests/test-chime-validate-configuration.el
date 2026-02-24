@@ -124,9 +124,9 @@
       (let ((issues (chime-validate-configuration)))
         (should (= 1 (length issues)))
         (should (eq :warning (caar issues)))
-        (should (string-match-p "2 org-agenda-files don't exist" (cadar issues)))
-        (should (string-match-p "/missing.org" (cadar issues)))
-        (should (string-match-p "/also-missing.org" (cadar issues))))))
+        (should (string-match-p "2 org-agenda-files entries don't exist" (cadar issues)))
+        (should (string-match-p "/missing.org (file)" (cadar issues)))
+        (should (string-match-p "/also-missing.org (file)" (cadar issues))))))
   (test-chime-validate-configuration-teardown))
 
 (ert-deftest test-chime-validate-configuration-boundary-all-files-missing-returns-warning ()
@@ -141,7 +141,7 @@
       (let ((issues (chime-validate-configuration)))
         (should (= 1 (length issues)))
         (should (eq :warning (caar issues)))
-        (should (string-match-p "2 org-agenda-files don't exist" (cadar issues))))))
+        (should (string-match-p "2 org-agenda-files entries don't exist" (cadar issues))))))
   (test-chime-validate-configuration-teardown))
 
 ;;; Error Cases - Invalid Configurations

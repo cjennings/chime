@@ -1624,16 +1624,19 @@ When called programmatically, returns structured validation results."
       (push '(:error "org-agenda-files is not set or empty.\nChime cannot check for events without org files to monitor.\n\nSet org-agenda-files in your config:\n  (setq org-agenda-files '(\"~/org/inbox.org\" \"~/org/work.org\"))")
             issues))
 
-    ;; Warning: Check if files actually exist
+    ;; Warning: Check if files/directories actually exist
     (when (and (boundp 'org-agenda-files)
                org-agenda-files
                (listp org-agenda-files))
-      (let ((missing-files
-             (cl-remove-if #'file-exists-p org-agenda-files)))
-        (when missing-files
-          (push `(:warning ,(format "%d org-agenda-files don't exist:\n  %s\n\nChime will skip these files during event checks."
-                                   (length missing-files)
-                                   (mapconcat #'identity missing-files "\n  ")))
+      (let ((missing (cl-remove-if #'file-exists-p org-agenda-files)))
+        (when missing
+          (push `(:warning ,(format "%d org-agenda-files entries don't exist:\n  %s\n\nChime will skip these during event checks."
+                                   (length missing)
+                                   (mapconcat (lambda (path)
+                                                (format "%s (%s)" path
+                                                        (if (string-suffix-p "/" path)
+                                                            "directory" "file")))
+                                              missing "\n  ")))
                 issues))))
 
     ;; Check org-agenda is loadable
