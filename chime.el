@@ -616,7 +616,7 @@ for org-agenda-files to be populated)."
 
 (defun chime--time= (&rest list)
   "Compare timestamps.
-Comparison is performed by converted each element of LIST onto string
+Comparison is performed by converting each element of LIST to a string
 in order to ignore seconds."
   (->> list
        (--map (format-time-string "%Y-%m-%d %H:%M" it))
@@ -1309,7 +1309,6 @@ Combines keyword, tag, and custom predicate blacklists."
                  "chime-predicate-whitelist"
                  "chime-predicate-blacklist")))
         string-end)))
-
 
 (defun chime-environment-regex ()
   "Generate regex for environment variables to inject into async process."
