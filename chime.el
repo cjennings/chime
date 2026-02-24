@@ -7,7 +7,7 @@
 ;; Original Author: Artem Khramov <akhramov+emacs@pm.me>
 ;; Created: 6 Jan 2017
 ;; Version: 0.6.0
-;; Package-Requires: ((alert "1.2") (async "1.9.3") (dash "2.18.0") (emacs "26.1"))
+;; Package-Requires: ((alert "1.2") (async "1.9.3") (dash "2.18.0") (emacs "27.1"))
 ;; Keywords: notification alert org org-agenda agenda calendar chime sound
 ;; URL: https://github.com/cjennings/chime
 
@@ -64,6 +64,7 @@
 (require 'org-agenda)
 (require 'org-duration)
 (require 'cl-lib)
+(require 'subr-x)
 
 ;; Declare functions from chime-debug.el (loaded conditionally)
 (declare-function chime-debug-monitor-event-loading "chime-debug")
@@ -791,7 +792,7 @@ where N is `chime-day-wide-advance-notice'."
                    (is-all-day (not (chime--has-timestamp timestamp-str)))
                    ;; Parse the date portion even without time
                    (parsed (org-parse-time-string timestamp-str))
-                   ;; Use nth accessors for Emacs 26 compatibility
+
                    (year (nth 5 parsed))
                    (month (nth 4 parsed))
                    (day (nth 3 parsed)))
@@ -881,7 +882,7 @@ Handles both same-day events and advance notices."
                 (when-let* ((timestamp-str (car it))
                            (is-all-day (not (chime--has-timestamp timestamp-str)))
                            (parsed (org-parse-time-string timestamp-str))
-                           ;; Use nth accessors for Emacs 26 compatibility
+        
                            (year (nth 5 parsed))
                            (month (nth 4 parsed))
                            (day (nth 3 parsed)))
