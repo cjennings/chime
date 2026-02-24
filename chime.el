@@ -149,7 +149,8 @@ Note: Changes take effect after restarting chime-mode."
   "Path to notification icon file."
   :package-version '(chime . "0.4.1")
   :group 'chime
-  :type 'string)
+  :type '(choice (const :tag "No icon" nil)
+                 (file :tag "Icon file path")))
 
 (defcustom chime-keyword-whitelist nil
   "Receive notifications for these keywords only.
@@ -247,7 +248,7 @@ trigger a notification. Leave this variable blank if you do not want to filter
 anything."
   :package-version '(chime . "0.5.0")
   :group 'chime
-  :type '(function))
+  :type '(repeat function))
 
 (defcustom chime-additional-environment-regexes nil
   "Additional regular expressions for async environment injection.
@@ -255,7 +256,7 @@ These regexes are provided to `async-inject-environment' before
 running the async command to check notifications."
   :package-version '(chime . "0.5.0")
   :group 'chime
-  :type '(string))
+  :type '(repeat string))
 
 (defcustom chime-predicate-blacklist
   '(chime-done-keywords-predicate)
@@ -264,7 +265,7 @@ Each function should take an event POM and return non-nil iff that event should
 not trigger a notification."
   :package-version '(chime . "0.5.0")
   :group 'chime
-  :type '(function))
+  :type '(repeat function))
 
 (defcustom chime-extra-alert-plist nil
   "Additional arguments that should be passed to invocations of `alert'."
