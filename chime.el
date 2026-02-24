@@ -492,7 +492,10 @@ When non-nil, plays the sound file specified in `chime-sound-file'."
 
 (defcustom chime-sound-file
   (expand-file-name "sounds/chime.wav"
-                    (file-name-directory (or load-file-name buffer-file-name)))
+                    (file-name-directory
+                     (or load-file-name
+                         (locate-library "chime")
+                         buffer-file-name)))
   "Path to sound file to play when notifications are displayed.
 Defaults to the bundled chime.wav file.
 Set to nil to disable sound completely (no sound file, no beep).
