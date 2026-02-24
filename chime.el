@@ -1403,9 +1403,11 @@ Returns converted hour in 24-hour format (0-23):
      ;; 1-11am or 24-hour format: use as-is
      (t hour))))
 
-(defun chime--timestamp-parse (timestamp)
+(defun chime--timestamp-parse (timestamp &optional context)
   "Parse TIMESTAMP and return time in list-of-integer format.
-Returns nil if parsing fails or timestamp is malformed."
+Returns nil if parsing fails or timestamp is malformed.
+Optional CONTEXT string is included in error messages to help
+identify the source (e.g., event title)."
   (condition-case err
       (when (and timestamp
                  (stringp timestamp)
@@ -1443,8 +1445,10 @@ Returns nil if parsing fails or timestamp is malformed."
                       (* minute 60))))
                  2))))))
     (error
-     (message "chime: Failed to parse timestamp '%s': %s"
-              timestamp (error-message-string err))
+     (message "chime: Failed to parse timestamp '%s'%s: %s"
+              timestamp
+              (if context (format " in '%s'" context) "")
+              (error-message-string err))
      nil)))
 
 (defun chime--extract-time (marker)
@@ -1462,7 +1466,8 @@ For regular org events:
 Timestamps are extracted as cons cells:
 \(org-formatted-string . parsed-time)."
   (org-with-point-at marker
-    (let ((is-gcal-event (org-entry-get marker "entry-id")))
+    (let ((is-gcal-event (org-entry-get marker "entry-id"))
+          (heading (nth 4 (org-heading-components))))
       (if is-gcal-event
           ;; org-gcal event: extract ONLY from :org-gcal: drawer
           (let ((timestamps nil))
@@ -1484,7 +1489,7 @@ Timestamps are extracted as cons cells:
                   (while (re-search-forward org-ts-regexp drawer-end t)
                     (let ((timestamp-str (match-string 0)))
                       (push (cons timestamp-str
-                                 (chime--timestamp-parse timestamp-str))
+                                 (chime--timestamp-parse timestamp-str heading))
                             timestamps))))))
             (-non-nil (nreverse timestamps)))
         ;; Regular org event: prefer SCHEDULED/DEADLINE, fall back to plain timestamps
@@ -1495,7 +1500,7 @@ Timestamps are extracted as cons cells:
                  (let ((org-timestamp (org-entry-get marker it)))
                    (and org-timestamp
                         (cons org-timestamp
-                              (chime--timestamp-parse org-timestamp))))
+                              (chime--timestamp-parse org-timestamp heading))))
                  '("DEADLINE" "SCHEDULED"))))
               (plain-timestamps
                ;; Extract plain timestamps from entry body
@@ -1513,7 +1518,7 @@ Timestamps are extracted as cons cells:
                        (while (re-search-forward org-ts-regexp end t)
                          (let ((timestamp-str (match-string 0)))
                            (push (cons timestamp-str
-                                      (chime--timestamp-parse timestamp-str))
+                                      (chime--timestamp-parse timestamp-str heading))
                                  timestamps))))))
                  (nreverse timestamps))))
           ;; Combine property and plain timestamps, removing duplicates and nils
