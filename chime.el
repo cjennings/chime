@@ -1720,8 +1720,16 @@ Handles both regular event notifications and day-wide alerts."
            (-uniq))
     'chime--notify)
   (when (chime-current-time-is-day-wide-time)
-    (mapc 'chime--notify
-          (chime-day-wide-notifications events))))
+    (let ((day-wide (chime-day-wide-notifications events)))
+      (when day-wide
+        (if (= 1 (length day-wide))
+            ;; Single event: send as normal notification
+            (chime--notify (car day-wide))
+          ;; Multiple events: bundle into one notification, one sound
+          (let* ((messages (mapcar #'car day-wide))
+                 (body (mapconcat #'identity messages "\n"))
+                 (title (format "%d day-wide events" (length day-wide))))
+            (chime--notify (cons body 'medium))))))))
 
 (defun chime--maybe-warn-persistent-failures ()
   "Warn user if async failures have reached the threshold.
