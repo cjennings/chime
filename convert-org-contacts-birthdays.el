@@ -63,15 +63,6 @@
 
 (require 'org)
 
-(defun chime--extract-birthday-year (birthday-string)
-  "Extract year from BIRTHDAY-STRING, handling various formats.
-Returns nil if no year is present or if year should be ignored.
-Handles formats like:
-  2000-03-15
-  03-15
-  1985-12-25"
-  (when (string-match "^\\([0-9]\\{4\\}\\)-[0-9]\\{2\\}-[0-9]\\{2\\}$" birthday-string)
-    (string-to-number (match-string 1 birthday-string))))
 
 (defun chime--parse-birthday (birthday-string)
   "Parse BIRTHDAY-STRING into (YEAR MONTH DAY) list.

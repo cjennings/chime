@@ -279,28 +279,6 @@
         (dolist (file (directory-files (file-name-directory temp-file) t (regexp-quote (file-name-nondirectory backup))))
           (delete-file file))))))
 
-;;; Tests for year extraction
-
-(ert-deftest test-convert-normal-extract-birthday-year-with-year-returns-year ()
-  "Test extracting year from YYYY-MM-DD returns the year."
-  (let ((result (chime--extract-birthday-year "2000-03-15")))
-    (should (equal result 2000))))
-
-(ert-deftest test-convert-normal-extract-birthday-year-without-year-returns-nil ()
-  "Test extracting year from MM-DD returns nil."
-  (let ((result (chime--extract-birthday-year "03-15")))
-    (should (null result))))
-
-(ert-deftest test-convert-boundary-extract-birthday-year-very-old-date-returns-year ()
-  "Test extracting year from very old date (1900s) returns the year."
-  (let ((result (chime--extract-birthday-year "1920-01-01")))
-    (should (equal result 1920))))
-
-(ert-deftest test-convert-boundary-extract-birthday-year-future-date-returns-year ()
-  "Test extracting year from future date returns the year."
-  (let ((result (chime--extract-birthday-year "2100-12-31")))
-    (should (equal result 2100))))
-
 ;;; Edge Case Tests
 
 (ert-deftest test-convert-edge-duplicate-timestamps-not-added ()

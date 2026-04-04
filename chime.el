@@ -373,16 +373,17 @@ When nil (default), left-click does nothing."
   :type '(choice (const :tag "No calendar URL" nil)
                  (string :tag "Calendar URL")))
 
-(defcustom chime-tooltip-lookahead-hours 8760
+(defcustom chime-tooltip-lookahead-hours 168
   "Hours ahead to look for events in tooltip.
 Separate from modeline lookahead window.
-Default is 8760 hours (1 year), showing all future events.
+Default is 168 hours (1 week).
 The actual number of events shown is limited by
 `chime-modeline-tooltip-max-events'.
 
-Set to a smaller value to limit tooltip by time as well as count.
-Example: Set to 24 to show only today's and tomorrow's events,
-or keep at default to show next N events regardless of distance."
+Set to a larger value (e.g., 8760 for 1 year) to see distant events,
+or smaller (e.g., 24) for just today and tomorrow.
+Note: larger values increase the org-agenda-list span in the async
+subprocess, which may slow event checks for large org collections."
   :package-version '(chime . "0.6.0")
   :group 'chime
   :type '(integer :tag "Hours"))
@@ -587,8 +588,6 @@ Set to t to enable debug functions:
   "Count of consecutive async check failures.
 After `chime-max-consecutive-failures' failures, a warning is displayed.")
 
-(defvar chime--agenda-buffer-name "*chime-agenda*"
-  "Name for temporary \\='org-agenda\\=' buffer.")
 
 (defvar chime--last-check-time (seconds-to-time 0)
   "Last time checked for events.")
