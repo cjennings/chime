@@ -651,7 +651,7 @@ Returns nil if TIMESTAMP or INTERVAL is invalid."
   (and timestamp
        interval
        (numberp interval)
-       ;; Validate timestamp is a proper time value (accepts list, integer, or float)
+       ;; Emacs time values are either (HI LO) lists or integer/float seconds
        (or (listp timestamp) (numberp timestamp))
        (chime--time=
         (time-add (current-time) (seconds-to-time (* 60 interval)))
@@ -661,14 +661,16 @@ Returns nil if TIMESTAMP or INTERVAL is invalid."
   "Get notifications for given EVENT.
 Returns a list of time information interval pairs.
 Each pair is ((TIMESTAMP . TIME-VALUE) (MINUTES . SEVERITY))."
+  ;; Cartesian product of (timestamp-info × interval-info) via -table-flat,
+  ;; then filter to pairs where the timestamp falls within the interval window.
+  ;; Each result is ((ts-str . time-val) (minutes . severity)).
   (->> (list
         (chime--filter-day-wide-events (cdr (assoc 'times event)))
         (cdr (assoc 'intervals event)))
          (apply '-table-flat (lambda (ts int) (list ts int)))
-         ;; When no values are provided for table flat, we get the second values
-         ;; paired with nil.
+         ;; -table-flat pairs nil with intervals when times list is empty
          (--filter (not (null (car it))))
-         ;; Extract minutes from (minutes . severity) cons for time matching
+         ;; cdar = parsed time from (ts-str . time-val); car of cadr = minutes
          (--filter (chime--timestamp-within-interval-p (cdar it) (car (cadr it))))))
 
 (defun chime--has-timestamp (s)
@@ -913,6 +915,7 @@ Handles both same-day events and advance notices."
 (defun chime--check-event (event)
   "Get notifications for given EVENT.
 Returns a list of (MESSAGE . SEVERITY) cons cells."
+  ;; Each notif from chime--notifications is ((ts-str . time-val) (min . sev))
   (->> (chime--notifications event)
        (--map (let* ((notif it)
                      (timestamp-str (caar notif))
@@ -1027,6 +1030,7 @@ Returns an alist of (DATE-STRING . EVENTS-LIST)."
               (day-events (cdr day-group)))
           (push (format "\n%s:\n" date-str) lines)
           (push "─────────────\n" lines)
+          ;; Each item is (event (ts-str . time-val) minutes-until)
           (dolist (item day-events)
             (let* ((event (car item))
                    (event-time-str (car (nth 1 item)))
@@ -1286,6 +1290,8 @@ Combines keyword, tag, and custom predicate blacklists."
 
 ;;;; Async Event Retrieval
 
+;; Expand rx at load-time to produce a regex string matching variable names
+;; that async-inject-variables should copy into the subprocess environment.
 (defconst chime-default-environment-regex
   (macroexpand
    `(rx string-start
@@ -1313,6 +1319,9 @@ Combines keyword, tag, and custom predicate blacklists."
 
 (defun chime--retrieve-events ()
   "Get events from agenda view."
+  ;; Returns a backquoted lambda that runs in a separate Emacs process via async.
+  ;; The unquoted ,(async-inject-variables ...) splices variable bindings from
+  ;; the parent process; everything else executes in the child.
   `(lambda ()
     (setf org-agenda-use-time-grid nil)
     (setf org-agenda-compact-blocks t)
@@ -1430,8 +1439,7 @@ identify the source (e.g., event title)."
                          (>= day 1) (<= day 31)
                          (>= hour 0) (<= hour 23)
                          (>= minute 0) (<= minute 59))
-                ;; seconds-to-time returns also milliseconds and nanoseconds so we
-                ;; have to "trim" the list
+                ;; seconds-to-time returns (HI LO USEC PSEC); drop USEC/PSEC
                 (butlast
                  (seconds-to-time
                   (time-add
@@ -1492,7 +1500,7 @@ HEADING is the entry title for error context.
 Returns list of (TIMESTAMP-STR . PARSED-TIME) cons cells."
   (let ((timestamps nil))
     (save-excursion
-      (org-end-of-meta-data nil)
+      (org-end-of-meta-data nil)  ;; nil = skip planning lines only, not drawers
       (let ((start (point))
             (end (save-excursion (org-end-of-subtree t) (point))))
         (when (< start end)
