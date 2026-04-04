@@ -1,6 +1,6 @@
 ;;; test-chime-get-tags.el --- Tests for chime--get-tags and chime-done-keywords-predicate -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2024-2026 Craig Jennings
+;; Copyright (C) 2026 Craig Jennings
 
 ;; Author: Craig Jennings <c@cjennings.net>
 

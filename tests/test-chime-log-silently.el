@@ -1,6 +1,6 @@
 ;;; test-chime-log-silently.el --- Tests for chime--log-silently -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2024-2026 Craig Jennings
+;; Copyright (C) 2026 Craig Jennings
 
 ;; Author: Craig Jennings <c@cjennings.net>
 

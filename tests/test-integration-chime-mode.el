@@ -1,6 +1,6 @@
 ;;; test-integration-chime-mode.el --- Integration tests for chime-mode activation -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2024-2026 Craig Jennings
+;; Copyright (C) 2026 Craig Jennings
 
 ;; Author: Craig Jennings <c@cjennings.net>
 

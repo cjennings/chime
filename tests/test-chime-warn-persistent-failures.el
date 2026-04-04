@@ -1,6 +1,6 @@
 ;;; test-chime-warn-persistent-failures.el --- Tests for chime--maybe-warn-persistent-failures -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2024-2026 Craig Jennings
+;; Copyright (C) 2026 Craig Jennings
 
 ;; Author: Craig Jennings <c@cjennings.net>
 
