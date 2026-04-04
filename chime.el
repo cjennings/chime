@@ -1689,6 +1689,7 @@ When called programmatically, returns structured validation results."
 (defun chime--stop ()
   "Stop the notification timer and cancel any in-progress check."
   (-some-> chime--timer (cancel-timer))
+  (setq chime--timer nil)
   (when chime--process
     (interrupt-process chime--process)
     (setq chime--process nil))

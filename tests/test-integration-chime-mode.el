@@ -54,5 +54,16 @@ and set it to nil."
     (should-not (memq 'chime-modeline-string global-mode-string))
     (should (null chime-modeline-string))))
 
+(ert-deftest test-integration-chime-mode-disable-nils-timer ()
+  "Disabling chime-mode should set chime--timer to nil."
+  (let ((chime-enable-modeline t)
+        (chime-modeline-lookahead-minutes 60))
+    (chime-mode 1)
+    ;; Timer should exist after enable
+    (should chime--timer)
+    (chime-mode -1)
+    ;; Timer should be nil after disable
+    (should (null chime--timer))))
+
 (provide 'test-integration-chime-mode)
 ;;; test-integration-chime-mode.el ends here
