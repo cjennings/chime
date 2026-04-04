@@ -1,26 +1,10 @@
+* CHIME Heralds Imminent Modeline Events
 
-* *CHIME Heralds Imminent Modeline Events*
+[[#about][About]] | [[#features][Features]] | [[#installation][Installation]] | [[#quick-start][Quick Start]] | [[#configuration][Configuration]] | [[#usage][Usage]] | [[#troubleshooting][Troubleshooting]] | [[#testing][Testing]] | [[#credits][Credits]]
+
+[[https://www.gnu.org/software/emacs/][file:assets/made-for-emacs-badge.svg]]
 
 Customizable org notifications for Emacs with visual alerts, audible chimes, and modeline display.
-
-** Table of Contents
-
-- [[#about][About]]
-- [[#features][Features]]
-- [[#installation][Installation]]
-- [[#quick-start][Quick Start]]
-- [[#configuration][Configuration]]
-- [[#usage][Usage]]
-- [[#known-limitations][Known Limitations]]
-- [[#full-example-configuration][Full Example Configuration]]
-- [[#manual-check][Manual Check]]
-- [[#troubleshooting][Troubleshooting]]
-- [[#requirements][Requirements]]
-- [[#testing][Testing]]
-- [[#license][License]]
-- [[#credits][Credits]]
-- [[#migration-from-org-wild-notifier][Migration from org-wild-notifier]]
-- [[#development][Development]]
 
 ** About
 :PROPERTIES:
