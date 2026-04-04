@@ -78,7 +78,7 @@
   "Chime customization options."
   :group 'org)
 
-(defcustom chime-alert-intervals '((10 . medium))
+(defcustom chime-alert-intervals '((10 . medium) (0 . high))
   "Alert intervals with severity levels for upcoming events.
 Each element is a cons cell (MINUTES . SEVERITY) where:
 - MINUTES: Number of minutes before event to notify (0 = at event time)
@@ -341,7 +341,7 @@ chime-mode is active."
   :group 'chime
   :type 'string)
 
-(defcustom chime-modeline-lookahead-minutes 60
+(defcustom chime-modeline-lookahead-minutes 120
   "Minutes ahead to look for next event to display in modeline.
 Should be larger than notification alert times for advance awareness.
 Set to 0 to disable modeline display.

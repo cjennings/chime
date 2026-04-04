@@ -94,7 +94,7 @@ This package is NOT YET available on MELPA.
 
   ;; Modeline display (see "Modeline Display" section for more options)
   (setq chime-enable-modeline t)
-  (setq chime-modeline-lookahead-minutes 60)
+  (setq chime-modeline-lookahead-minutes 120)
   (setq chime-modeline-format " ⏰ %s")
 
   ;; Notification settings
@@ -177,7 +177,10 @@ Lower values make notifications more responsive but increase system load. Higher
 Set when to receive notifications and their urgency levels using (minutes . severity) pairs:
 
 #+BEGIN_SRC elisp
-;; Single notification 10 minutes before with medium urgency
+;; Default: 10 minutes before (medium) and at event time (high)
+(setq chime-alert-intervals '((10 . medium) (0 . high)))
+
+;; Single notification 10 minutes before
 (setq chime-alert-intervals '((10 . medium)))
 
 ;; Multiple notifications with escalating urgency
@@ -240,8 +243,8 @@ Display your next upcoming event in your modeline:
 ;; Enable/disable modeline display (default: t)
 (setq chime-enable-modeline t)
 
-;; Show events up to 60 minutes ahead (default: 60)
-(setq chime-modeline-lookahead-minutes 60)
+;; Show events up to 2 hours ahead (default: 120)
+(setq chime-modeline-lookahead-minutes 120)
 
 ;; Customize the modeline prefix format (default: " ⏰ %s")
 (setq chime-modeline-format " [Next: %s]")
@@ -339,8 +342,8 @@ Uses =format-time-string= codes (=%a= weekday, =%b= month, =%d= day, =%Y= year, 
 The tooltip can show events beyond the modeline lookahead window. By default, it shows events up to 1 week (168 hours) in the future, while the modeline only shows events within the next hour:
 
 #+BEGIN_SRC elisp
-;; Modeline shows events within next 60 minutes (default)
-(setq chime-modeline-lookahead-minutes 60)
+;; Modeline shows events within next 2 hours (default: 120)
+(setq chime-modeline-lookahead-minutes 120)
 
 ;; Tooltip shows events within next 168 hours / 1 week (default)
 (setq chime-tooltip-lookahead-hours 168)
@@ -1015,7 +1018,7 @@ For Monday-Friday events, you can either:
 
     ;; Modeline display - compact format
     (setq chime-enable-modeline t)
-    (setq chime-modeline-lookahead-minutes 120)    ; Show events 2 hrs ahead
+    (setq chime-modeline-lookahead-minutes 180)    ; Show events 3 hrs ahead
     (setq chime-modeline-format " ⏰%s")           ; Minimal prefix
     (setq chime-notification-text-format "%t (%u)") ; Title + countdown only
     (setq chime-display-time-format-string "%H:%M") ; 24-hour time
