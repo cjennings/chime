@@ -1621,6 +1621,18 @@ especially when buffer names contain angle brackets)."
 
 ;;;; Configuration Validation
 
+(defun chime--display-validation-results (issues)
+  "Display validation ISSUES via message/warning system.
+ISSUES is a list of (SEVERITY MESSAGE) pairs."
+  (if (null issues)
+      (message "Chime: ✓ All validation checks passed!")
+    (let ((errors (cl-remove-if-not (lambda (i) (eq (car i) :error)) issues))
+          (warnings (cl-remove-if-not (lambda (i) (eq (car i) :warning)) issues)))
+      (dolist (err errors)
+        (display-warning 'chime (cadr err) :error))
+      (dolist (warn warnings)
+        (display-warning 'chime (cadr warn) :warning)))))
+
 ;;;###autoload
 (defun chime-validate-configuration ()
   "Validate chime's runtime environment and configuration.
@@ -1672,21 +1684,9 @@ When called programmatically, returns structured validation results."
       (push '(:warning "global-mode-string not available.\nModeline display may not work in this Emacs version.")
             issues))
 
-    ;; Display results if interactive
     (when (called-interactively-p 'any)
-      (if (null issues)
-          (message "Chime: ✓ All validation checks passed!")
-        ;; Show errors and warnings
-        (let ((errors (cl-remove-if-not (lambda (i) (eq (car i) :error)) issues))
-              (warnings (cl-remove-if-not (lambda (i) (eq (car i) :warning)) issues)))
-          (when errors
-            (dolist (err errors)
-              (display-warning 'chime (cadr err) :error)))
-          (when warnings
-            (dolist (warn warnings)
-              (display-warning 'chime (cadr warn) :warning))))))
+      (chime--display-validation-results issues))
 
-    ;; Return issues for programmatic use
     issues))
 
 ;;;; Core Lifecycle
