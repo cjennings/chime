@@ -826,59 +826,51 @@ where N is `chime-day-wide-advance-notice'."
 (defun chime-event-has-any-passed-time (event)
   "Check if EVENT has any timestamps in the past or today.
 For all-day events, checks if the date is today or earlier."
-  (--any
-   (let ((timestamp-str (car it))
-         (parsed-time (cdr it)))
-     (if parsed-time
-         ;; Timed event: check if time has passed
-         (time-less-p parsed-time (current-time))
-       ;; All-day event: check if date is today or earlier
-       (when-let* ((parsed (org-parse-time-string timestamp-str))
-                   (year (nth 5 parsed))
-                   (month (nth 4 parsed))
-                   (day (nth 3 parsed)))
-         (let* ((event-date (encode-time 0 0 0 day month year))
-                (today-start (let ((now (decode-time (current-time))))
-                               (encode-time 0 0 0
-                                           (decoded-time-day now)
-                                           (decoded-time-month now)
-                                           (decoded-time-year now)))))
-           (not (time-less-p today-start event-date))))))
-   (cdr (assoc 'times event))))
+  (let* ((now (current-time))
+         (now-decoded (decode-time now))  ;; explicit arg for testability
+         (today-start (encode-time 0 0 0
+                                   (decoded-time-day now-decoded)
+                                   (decoded-time-month now-decoded)
+                                   (decoded-time-year now-decoded))))
+    (--any
+     (let ((timestamp-str (car it))
+           (parsed-time (cdr it)))
+       (if parsed-time
+           (time-less-p parsed-time now)
+         (when-let* ((parsed (org-parse-time-string timestamp-str))
+                     (year (nth 5 parsed))
+                     (month (nth 4 parsed))
+                     (day (nth 3 parsed)))
+           (let ((event-date (encode-time 0 0 0 day month year)))
+             (not (time-less-p today-start event-date))))))
+     (cdr (assoc 'times event)))))
 
 (defun chime-event-is-today (event)
   "Check if EVENT has any timestamps that are specifically today (not past days).
 For all-day events, checks if the date is exactly today.
 For timed events, checks if the time is today (past or future)."
-  (--any
-   (let ((timestamp-str (car it))
-         (parsed-time (cdr it)))
-     (if parsed-time
-         ;; Timed event: check if it's today (could be future time today)
-         (let* ((decoded (decode-time parsed-time))
-                (event-day (decoded-time-day decoded))
-                (event-month (decoded-time-month decoded))
-                (event-year (decoded-time-year decoded))
-                (today (decode-time))
-                (today-day (decoded-time-day today))
-                (today-month (decoded-time-month today))
-                (today-year (decoded-time-year today)))
-           (and (= event-day today-day)
-                (= event-month today-month)
-                (= event-year today-year)))
-       ;; All-day event: check if date is exactly today
-       (when-let* ((parsed (org-parse-time-string timestamp-str))
-                   (year (nth 5 parsed))
-                   (month (nth 4 parsed))
-                   (day (nth 3 parsed)))
-         (let* ((event-date (encode-time 0 0 0 day month year))
-                (today-start (let ((now (decode-time (current-time))))
-                               (encode-time 0 0 0
-                                           (decoded-time-day now)
-                                           (decoded-time-month now)
-                                           (decoded-time-year now)))))
-           (time-equal-p event-date today-start)))))
-   (cdr (assoc 'times event))))
+  (let* ((now-decoded (decode-time (current-time)))  ;; explicit arg for testability
+         (today-day (decoded-time-day now-decoded))
+         (today-month (decoded-time-month now-decoded))
+         (today-year (decoded-time-year now-decoded))
+         (today-start (encode-time 0 0 0 today-day today-month today-year)))
+    (--any
+     (let ((timestamp-str (car it))
+           (parsed-time (cdr it)))
+       (if parsed-time
+           (let* ((decoded (decode-time parsed-time))
+                  (event-day (decoded-time-day decoded))
+                  (event-month (decoded-time-month decoded))
+                  (event-year (decoded-time-year decoded)))
+             (and (= event-day today-day)
+                  (= event-month today-month)
+                  (= event-year today-year)))
+         (when-let* ((parsed (org-parse-time-string timestamp-str))
+                     (year (nth 5 parsed))
+                     (month (nth 4 parsed))
+                     (day (nth 3 parsed)))
+           (time-equal-p (encode-time 0 0 0 day month year) today-start))))
+     (cdr (assoc 'times event)))))
 
 (defun chime--days-until-event (all-times)
   "Calculate minimum days until the soonest all-day timestamp in ALL-TIMES.
@@ -986,27 +978,24 @@ TITLE is the event title."
 (defun chime--group-events-by-day (upcoming-events)
   "Group UPCOMING-EVENTS by day.
 Returns an alist of (DATE-STRING . EVENTS-LIST)."
-  (let ((grouped '())
-        (now (current-time)))
+  (let* ((grouped '())
+         (now (current-time))
+         (now-decoded (decode-time now))
+         (now-day (decoded-time-day now-decoded))
+         (now-month (decoded-time-month now-decoded))
+         (now-year (decoded-time-year now-decoded))
+         (tomorrow (time-add now (days-to-time 1)))
+         (tomorrow-decoded (decode-time tomorrow)))
     (dolist (item upcoming-events)
       (let* ((event-time (cdr (nth 1 item)))
-             (_minutes-until (nth 2 item))
-             ;; Get date components for calendar day comparison
-             (now-decoded (decode-time now))
              (event-decoded (decode-time event-time)))
         (when event-decoded
-          (let* ((now-day (decoded-time-day now-decoded))
-                 (now-month (decoded-time-month now-decoded))
-                 (now-year (decoded-time-year now-decoded))
-                 (event-day (decoded-time-day event-decoded))
+          (let* ((event-day (decoded-time-day event-decoded))
                  (event-month (decoded-time-month event-decoded))
                  (event-year (decoded-time-year event-decoded))
-                 ;; Check if same calendar day (not just < 24 hours)
                  (same-day-p (and (= now-day event-day)
                                  (= now-month event-month)
                                  (= now-year event-year)))
-                 ;; Check if tomorrow (next calendar day)
-                 (tomorrow-decoded (decode-time (time-add now (days-to-time 1))))
                  (tomorrow-p (and (= event-day (decoded-time-day tomorrow-decoded))
                                  (= event-month (decoded-time-month tomorrow-decoded))
                                  (= event-year (decoded-time-year tomorrow-decoded))))
@@ -1014,9 +1003,8 @@ Returns an alist of (DATE-STRING . EVENTS-LIST)."
                                (same-day-p
                                 (format-time-string "Today, %b %d" now))
                                (tomorrow-p
-                                (format-time-string "Tomorrow, %b %d"
-                                                   (time-add now (days-to-time 1))))
-                               (t ;; Future days
+                                (format-time-string "Tomorrow, %b %d" tomorrow))
+                               (t
                                 (format-time-string "%A, %b %d" event-time)))))
             (let ((day-group (assoc date-string grouped)))
               (if day-group
@@ -1152,11 +1140,9 @@ Returns sorted, deduplicated list of (EVENT TIME-INFO MINUTES-UNTIL) tuples."
         (when soonest
           (push (list event (cons (nth 0 soonest) (nth 1 soonest)) (nth 2 soonest))
                 upcoming))))
-    ;; Sort by time (soonest first)
-    (setq upcoming (sort upcoming (lambda (a b) (< (nth 2 a) (nth 2 b)))))
     ;; Deduplicate by title - keep only soonest occurrence
     (setq upcoming (chime--deduplicate-events-by-title upcoming))
-    ;; Re-sort after deduplication
+    ;; Sort by time (soonest first)
     (sort upcoming (lambda (a b) (< (nth 2 a) (nth 2 b))))))
 
 (defun chime--find-soonest-modeline-event (events now modeline-lookahead-minutes)
@@ -1722,8 +1708,7 @@ to populate org-agenda-files."
 Handles both regular event notifications and day-wide alerts."
   (-each
       (->> events
-           (-map 'chime--check-event)
-           (-flatten)
+           (-mapcat 'chime--check-event)
            (-uniq))
     'chime--notify)
   (when (chime-current-time-is-day-wide-time)
