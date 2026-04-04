@@ -1799,6 +1799,33 @@ FORMAT-STRING and ARGS are passed to `format'."
       (insert (apply #'format format-string args))
       (unless (bolp) (insert "\n")))))
 
+(defun chime--maybe-validate ()
+  "Run startup validation if not yet done.  Return t if OK to proceed.
+Handles retry logic for async org-agenda-files initialization.
+Returns nil if validation failed and check should be skipped."
+  (if chime--validation-done
+      t
+    (let ((issues (chime-validate-configuration)))
+      (if (cl-some (lambda (i) (eq (car i) :error)) issues)
+          (progn
+            (setq chime--validation-retry-count (1+ chime--validation-retry-count))
+            (if (> chime--validation-retry-count chime-validation-max-retries)
+                (let ((errors (cl-remove-if-not (lambda (i) (eq (car i) :error)) issues)))
+                  (chime--log-silently "Chime: Configuration validation failed with %d error(s) after %d retries:"
+                                       (length errors)
+                                       chime--validation-retry-count)
+                  (dolist (err errors)
+                    (chime--log-silently "")
+                    (chime--log-silently "ERROR: %s" (cadr err)))
+                  (message "Chime: Configuration errors detected (see *Messages* buffer for details)"))
+              (message "Chime: Waiting for org-agenda-files to load... (attempt %d/%d)"
+                       chime--validation-retry-count
+                       chime-validation-max-retries))
+            nil)
+        (setq chime--validation-done t)
+        (setq chime--validation-retry-count 0)
+        t))))
+
 ;;;###autoload
 (cl-defun chime-check ()
   "Parse agenda view and notify about upcoming events.
@@ -1812,36 +1839,8 @@ error and skips the check."
   (interactive)
 
   ;; Validate configuration on first check only
-  (unless chime--validation-done
-    (let ((issues (chime-validate-configuration)))
-      (if (cl-some (lambda (i) (eq (car i) :error)) issues)
-          (progn
-            ;; Critical errors found - increment retry counter
-            (setq chime--validation-retry-count (1+ chime--validation-retry-count))
-
-            ;; Check if we've exceeded max retries
-            (if (> chime--validation-retry-count chime-validation-max-retries)
-                ;; Max retries exceeded - show full error
-                (let ((errors (cl-remove-if-not (lambda (i) (eq (car i) :error)) issues)))
-                  (chime--log-silently "Chime: Configuration validation failed with %d error(s) after %d retries:"
-                                       (length errors)
-                                       chime--validation-retry-count)
-                  (dolist (err errors)
-                    (chime--log-silently "")
-                    (chime--log-silently "ERROR: %s" (cadr err)))
-                  (message "Chime: Configuration errors detected (see *Messages* buffer for details)"))
-              ;; Still within retry limit - show friendly waiting message
-              (message "Chime: Waiting for org-agenda-files to load... (attempt %d/%d)"
-                       chime--validation-retry-count
-                       chime-validation-max-retries))
-
-            ;; Don't mark validation as done - will retry on next check
-            ;; in case dependencies load later
-            ;; Don't proceed with check
-            (cl-return-from chime-check nil))
-        ;; No errors - mark validation as done and reset retry counter
-        (setq chime--validation-done t)
-        (setq chime--validation-retry-count 0))))
+  (unless (chime--maybe-validate)
+    (cl-return-from chime-check nil))
 
   ;; Validation passed or already done - proceed with check
   (chime--fetch-and-process
