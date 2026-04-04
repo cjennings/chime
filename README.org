@@ -127,12 +127,10 @@ This package is NOT YET available on MELPA.
 :CUSTOM_ID: quick-start
 :END:
 
-Minimal configuration:
-
-clone the package somewhere, then add 
+Minimal configuration — clone the repo and point your load-path at it:
 
 #+BEGIN_SRC elisp
-  (add-to-list 'load-path  "/path/to/chime/")
+  (add-to-list 'load-path "/path/to/chime/")
   (require 'chime)
 
   ;; Alert intervals: notify 5 minutes before (medium) and at event time (high)
@@ -338,21 +336,26 @@ Uses =format-time-string= codes (=%a= weekday, =%b= month, =%d= day, =%Y= year, 
 
 ***** Tooltip Lookahead Window
 
-The tooltip can show events beyond the modeline lookahead window. By default, it shows events up to 1 year (8760 hours) in the future, while the modeline only shows events within the next hour:
+The tooltip can show events beyond the modeline lookahead window. By default, it shows events up to 1 week (168 hours) in the future, while the modeline only shows events within the next hour:
 
 #+BEGIN_SRC elisp
 ;; Modeline shows events within next 60 minutes (default)
 (setq chime-modeline-lookahead-minutes 60)
 
-;; Tooltip shows events within next 8760 hours / 1 year (default)
-(setq chime-tooltip-lookahead-hours 8760)
+;; Tooltip shows events within next 168 hours / 1 week (default)
+(setq chime-tooltip-lookahead-hours 168)
 
 ;; Example: Show only today's events in tooltip (24 hours)
 (setq chime-tooltip-lookahead-hours 24)
 
-;; Example: Show events for the next week in tooltip
-(setq chime-tooltip-lookahead-hours 168)  ; 7 days × 24 hours
+;; Example: Show events for the next month
+(setq chime-tooltip-lookahead-hours 720)  ; 30 days × 24 hours
+
+;; Example: Show all events for the next year (may slow checks for large org collections)
+(setq chime-tooltip-lookahead-hours 8760)
 #+END_SRC
+
+Note: larger values increase the agenda span fetched by the async subprocess, which can slow event checks if you have many org files.
 
 This separation allows you to:
 - Keep the modeline focused on imminent events (tactical view)
@@ -563,6 +566,73 @@ Examples:
 
 Most users configure either whitelists or blacklists, not both. If you use both, ensure they don't overlap to avoid confusion.
 
+**** Custom Predicate Filtering
+
+For filtering logic that goes beyond keywords and tags, you can write custom predicate functions. Each predicate receives an org marker (POM) and should return non-nil to match:
+
+#+BEGIN_SRC elisp
+;; Only notify for events in specific files
+(defun my-work-file-predicate (marker)
+  "Only match events in work.org."
+  (string-match-p "work\\.org" (buffer-file-name (marker-buffer marker))))
+
+(setq chime-predicate-whitelist '(my-work-file-predicate))
+
+;; Exclude events with specific properties
+(defun my-no-notify-predicate (marker)
+  "Exclude events with NO_NOTIFY property set."
+  (org-entry-get marker "NO_NOTIFY"))
+
+(setq chime-predicate-blacklist
+      '(chime-done-keywords-predicate my-no-notify-predicate))
+#+END_SRC
+
+The built-in =chime-done-keywords-predicate= is in the blacklist by default, filtering out DONE items.
+
+*** Advanced Settings
+
+**** Failure Warnings
+
+If the async event check fails repeatedly (e.g., due to a misconfigured org file), chime will show a warning after a configurable number of consecutive failures:
+
+#+BEGIN_SRC elisp
+;; Warn after 5 consecutive failures (default)
+(setq chime-max-consecutive-failures 5)
+
+;; Disable failure warnings
+(setq chime-max-consecutive-failures 0)
+#+END_SRC
+
+**** Validation Retries
+
+On startup, chime validates that =org-agenda-files= is populated. If your config loads org-agenda-files asynchronously (e.g., via idle timers), chime will retry validation a few times before giving up:
+
+#+BEGIN_SRC elisp
+;; Retry validation 3 times before showing error (default)
+(setq chime-validation-max-retries 3)
+
+;; Show error immediately if org-agenda-files is empty
+(setq chime-validation-max-retries 0)
+#+END_SRC
+
+**** Extra Alert Arguments
+
+Pass additional arguments to every =alert= call (see alert.el documentation for available options):
+
+#+BEGIN_SRC elisp
+;; Example: always use a specific alert style
+(setq chime-extra-alert-plist '(:style libnotify))
+#+END_SRC
+
+**** Async Environment Variables
+
+If you have custom variables that need to be available in chime's async subprocess (e.g., for custom predicate functions), add their name patterns:
+
+#+BEGIN_SRC elisp
+;; Inject custom variables into the async process
+(setq chime-additional-environment-regexes '("my-custom-var"))
+#+END_SRC
+
 *** All-Day Events
 
 Chime distinguishes between *timed events* (with specific times like =10:00=) and *all-day events* (without times, such as birthdays or holidays).
@@ -744,6 +814,9 @@ With =chime-day-wide-alert-times= set to ='("08:00")=, you'll get a morning remi
 You'll receive notifications on each day of the conference at your configured alert times.
 
 **** Integration with org-contacts
+:PROPERTIES:
+:CUSTOM_ID: integration-with-org-contacts
+:END:
 
 If you use [[https://repo.or.cz/org-contacts.git][org-contacts]] for managing contacts and birthdays, chime provides built-in integration to ensure birthdays appear in your agenda and trigger notifications.
 
@@ -978,10 +1051,36 @@ You can manually trigger a notification check:
 M-x chime-check
 #+END_SRC
 
+To update the modeline display *without* sending notifications (useful after syncing your calendar with org-gcal or similar tools):
+
+#+BEGIN_SRC elisp
+M-x chime-refresh-modeline
+#+END_SRC
+
 ** Troubleshooting
 :PROPERTIES:
 :CUSTOM_ID: troubleshooting
 :END:
+
+*** Enabling Debug Mode
+
+If something isn't working right, enable debug mode for detailed diagnostics in the =*Messages*= buffer:
+
+#+BEGIN_SRC elisp
+;; Enable BEFORE loading chime
+(setq chime-debug t)
+(require 'chime)
+#+END_SRC
+
+This loads =chime-debug.el= and provides several diagnostic commands:
+
+- =M-x chime--debug-dump-events= — show all stored upcoming events
+- =M-x chime--debug-dump-tooltip= — show tooltip content
+- =M-x chime--debug-config= — dump complete configuration
+- =M-x chime--debug-show-async-stats= — show async process success/failure stats
+- =M-x chime-debug-force-check= — force an immediate check with diagnostics
+
+Debug mode also automatically monitors event loading timing and async process performance, logging details to =*Messages*=.
 
 *** No notifications appearing
 
@@ -992,6 +1091,7 @@ M-x chime-check
    #+END_SRC
 3. Manually test: =M-x chime-check=
 4. Check =*Messages*= buffer for error messages
+5. Enable [[#enabling-debug-mode][debug mode]] for detailed diagnostics
 
 *** No sound playing
 
@@ -1034,42 +1134,27 @@ In your org file (usually =schedule.org=), comment out or remove:
 # %%(org-contacts-anniversaries)
 #+END_SRC
 
-*Solution 3: Convert to plain timestamps*
+*Solution 3: Convert to plain timestamps (recommended)*
 
-Use the conversion script to generate plain org entries from your contacts.
+Use the included conversion script to add birthday timestamps directly to your contacts file. See the [[#integration-with-org-contacts][org-contacts integration]] section for full details, but the quick version:
 
-*Safety Note:* This script is READ-ONLY. It reads from your org-contacts database but never modifies it. The output is written to a new file.
+#+BEGIN_SRC elisp
+;; Load the conversion script
+(require 'convert-org-contacts-birthdays
+         (expand-file-name "convert-org-contacts-birthdays.el"
+                          (file-name-directory (locate-library "chime"))))
 
-*Step-by-step process:*
+;; Convert your contacts file in-place (creates timestamped backup first)
+M-x chime-convert-contacts-in-place RET ~/org/contacts.org RET
+#+END_SRC
 
-1. (Optional but recommended) Backup your org files
+Then comment out the diary sexp:
 
-2. Load and run the conversion script:
-   #+BEGIN_SRC elisp
-   ;; Load the conversion script (included in chime.el repo)
-   (require 'convert-org-contacts-birthdays
-            (expand-file-name "convert-org-contacts-birthdays.el"
-                             (file-name-directory (locate-library "chime"))))
+#+BEGIN_SRC org
+# %%(org-contacts-anniversaries)
+#+END_SRC
 
-   ;; Convert contacts to plain org entries
-   M-x chime-convert-contacts-to-file RET ~/birthdays.org RET
-   #+END_SRC
-
-   This creates a NEW file (~/birthdays.org) with entries like:
-   #+BEGIN_SRC org
-   *** John Doe's Birthday
-   <2026-03-15 Sun +1y>
-   #+END_SRC
-
-3. When prompted, allow the script to add =birthdays.org= to =org-agenda-files=
-   (or add it manually later)
-
-4. Comment out or remove the sexp line from your schedule file:
-   #+BEGIN_SRC org
-   # %%(org-contacts-anniversaries)
-   #+END_SRC
-
-5. Restart chime or run =M-x chime-check= to verify birthdays appear without errors
+Restart chime or run =M-x chime-check= to verify birthdays appear without errors.
 
 *Why this happens:*
 
@@ -1134,7 +1219,7 @@ emacs &  # This creates a SECOND chime instance!
 :CUSTOM_ID: requirements
 :END:
 
-- Emacs 26.1+
+- Emacs 27.1+
 - Org-mode 9.0+
 - =alert= package
 - =dash= package
@@ -1145,7 +1230,7 @@ emacs &  # This creates a SECOND chime instance!
 :CUSTOM_ID: testing
 :END:
 
-Chime includes a comprehensive test suite with 505 tests covering all functionality. For detailed information about running tests, test architecture, and development workflows, see [[file:TESTING.org][TESTING.org]].
+Chime includes a comprehensive test suite with 600+ tests covering all functionality. For detailed information about running tests, test architecture, and development workflows, see [[file:TESTING.org][TESTING.org]].
 
 Quick start:
 #+BEGIN_SRC bash
