@@ -372,17 +372,79 @@ Shows loaded features before the check and logs async process details."
 
 ;;; Notification Filtering Debugger
 
+(defun chime--debug-filter-check-timestamp (timestamp-str)
+  "Debug step: check if TIMESTAMP-STR is recognized as having a time component."
+  (chime--log-silently "\n--- Step 1: Timestamp Recognition ---")
+  (let ((has-time (chime--has-timestamp timestamp-str)))
+    (chime--log-silently "chime--has-timestamp: %s" has-time)
+    (when (string-match org-ts-regexp0 timestamp-str)
+      (chime--log-silently "org-ts-regexp0 matches: yes")
+      (chime--log-silently "match-beginning 7 (time component): %s"
+                           (match-beginning 7)))
+    (unless has-time
+      (chime--log-silently "⚠ WARNING: Timestamp not recognized as having time component!")
+      (chime--log-silently "  This event would be filtered out by chime--filter-day-wide-events"))))
+
+(defun chime--debug-filter-check-time-match (now event-time interval)
+  "Debug step: check if NOW + INTERVAL minutes matches EVENT-TIME."
+  (chime--log-silently "\n--- Step 2: Time Matching ---")
+  (let* ((check-time (time-add now (seconds-to-time (* 60 interval))))
+         (matches (chime--time= check-time event-time)))
+    (chime--log-silently "Current time + interval: %s"
+                         (format-time-string "%Y-%m-%d %H:%M:%S" check-time))
+    (chime--log-silently "Event time:              %s"
+                         (format-time-string "%Y-%m-%d %H:%M:%S" event-time))
+    (chime--log-silently "chime--time= result: %s" matches)
+    (chime--log-silently "\nFormatted comparison strings:")
+    (chime--log-silently "  Current + interval: %s"
+                         (format-time-string "%Y-%m-%d %H:%M" check-time))
+    (chime--log-silently "  Event time:         %s"
+                         (format-time-string "%Y-%m-%d %H:%M" event-time))
+    (unless matches
+      (chime--log-silently "⚠ Times do not match - notification would NOT be generated")
+      (let ((diff-seconds (abs (float-time (time-subtract check-time event-time)))))
+        (chime--log-silently "  Time difference: %.0f seconds (%.2f minutes)"
+                             diff-seconds (/ diff-seconds 60.0))))))
+
+(defun chime--debug-filter-check-interval (event-time interval)
+  "Debug step: test chime--timestamp-within-interval-p for EVENT-TIME and INTERVAL."
+  (chime--log-silently "\n--- Step 3: chime--timestamp-within-interval-p ---")
+  (let ((result (chime--timestamp-within-interval-p event-time interval)))
+    (chime--log-silently "Result: %s" result)
+    (if result
+        (chime--log-silently "✓ Event is within notification interval")
+      (chime--log-silently "✗ Event is NOT within notification interval"))))
+
+(defun chime--debug-filter-check-pipeline (event event-time interval)
+  "Debug step: run full notification pipeline for EVENT with EVENT-TIME and INTERVAL."
+  (chime--log-silently "\n--- Step 4: chime--notifications (full pipeline) ---")
+  (let* ((times (cdr (assoc 'times event)))
+         (filtered-times (chime--filter-day-wide-events times))
+         (result (chime--notifications event)))
+    (chime--log-silently "Input times: %d" (length times))
+    (chime--log-silently "After day-wide filter: %d" (length filtered-times))
+    (chime--log-silently "Final notifications: %d" (length result))
+    (if (> (length result) 0)
+        (progn
+          (chime--log-silently "✓ Notification WOULD be generated")
+          (dolist (notif result)
+            (chime--log-silently "  Message: %s" (car notif))
+            (chime--log-silently "  Severity: %s" (cdr notif))))
+      (chime--log-silently "✗ Notification would NOT be generated")
+      (chime--log-silently "\nPossible reasons:")
+      (when (= (length filtered-times) 0)
+        (chime--log-silently "  - Timestamp filtered out as day-wide event"))
+      (when (not (chime--timestamp-within-interval-p event-time interval))
+        (chime--log-silently "  - Event not within %d-minute interval" interval)))))
+
 ;;;###autoload
 (defun chime--debug-notification-filtering (event-time interval)
   "Debug why a notification might not be generated for EVENT-TIME and INTERVAL.
 EVENT-TIME should be an Emacs time value (from encode-time or current-time).
 INTERVAL is the number of minutes before the event to notify.
 
-This function traces through the entire notification filtering pipeline:
-1. Timestamp string generation
-2. Day-wide event filtering (chime--has-timestamp)
-3. Table-flat combination generation
-4. Timestamp-within-interval-p matching
+Traces through the notification filtering pipeline step by step,
+logging results to *Messages*.
 
 Example usage:
   (chime--debug-notification-filtering
@@ -416,7 +478,6 @@ Or for a specific date/time:
     (chime--log-silently "Interval:     %d minutes" interval)
     (chime--log-silently "Timestamp:    %s" timestamp-str)
 
-    ;; Calculate time differences
     (let* ((seconds-until (float-time (time-subtract event-time now)))
            (minutes-until (/ seconds-until 60.0))
            (hours-until (/ minutes-until 60.0))
@@ -425,71 +486,10 @@ Or for a specific date/time:
       (chime--log-silently "  %.2f seconds (%.2f minutes, %.2f hours, %.2f days)"
                            seconds-until minutes-until hours-until days-until))
 
-    ;; Step 1: Check timestamp recognition
-    (chime--log-silently "\n--- Step 1: Timestamp Recognition ---")
-    (let ((has-time (chime--has-timestamp timestamp-str)))
-      (chime--log-silently "chime--has-timestamp: %s" has-time)
-      (when (string-match org-ts-regexp0 timestamp-str)
-        (chime--log-silently "org-ts-regexp0 matches: yes")
-        (chime--log-silently "match-beginning 7 (time component): %s"
-                             (match-beginning 7)))
-      (unless has-time
-        (chime--log-silently "⚠ WARNING: Timestamp not recognized as having time component!")
-        (chime--log-silently "  This event would be filtered out by chime--filter-day-wide-events")))
-
-    ;; Step 2: Check time equality
-    (chime--log-silently "\n--- Step 2: Time Matching ---")
-    (let* ((check-time (time-add now (seconds-to-time (* 60 interval))))
-           (check-time-str (format-time-string "%Y-%m-%d %H:%M:%S" check-time))
-           (event-time-str (format-time-string "%Y-%m-%d %H:%M:%S" event-time))
-           (matches (chime--time= check-time event-time)))
-      (chime--log-silently "Current time + interval: %s" check-time-str)
-      (chime--log-silently "Event time:              %s" event-time-str)
-      (chime--log-silently "chime--time= result: %s" matches)
-
-      ;; Show the formatted strings that chime--time= compares
-      (chime--log-silently "\nFormatted comparison strings:")
-      (chime--log-silently "  Current + interval: %s"
-                           (format-time-string "%Y-%m-%d %H:%M" check-time))
-      (chime--log-silently "  Event time:         %s"
-                           (format-time-string "%Y-%m-%d %H:%M" event-time))
-
-      (unless matches
-        (chime--log-silently "⚠ Times do not match - notification would NOT be generated")
-        (let ((diff-seconds (abs (float-time (time-subtract check-time event-time)))))
-          (chime--log-silently "  Time difference: %.0f seconds (%.2f minutes)"
-                               diff-seconds (/ diff-seconds 60.0)))))
-
-    ;; Step 3: Test chime--timestamp-within-interval-p
-    (chime--log-silently "\n--- Step 3: chime--timestamp-within-interval-p ---")
-    (let ((result (chime--timestamp-within-interval-p event-time interval)))
-      (chime--log-silently "Result: %s" result)
-      (if result
-          (chime--log-silently "✓ Event is within notification interval")
-        (chime--log-silently "✗ Event is NOT within notification interval")))
-
-    ;; Step 4: Test chime--notifications
-    (chime--log-silently "\n--- Step 4: chime--notifications (full pipeline) ---")
-    (let* ((times (cdr (assoc 'times event)))
-           (intervals (cdr (assoc 'intervals event)))
-           (filtered-times (chime--filter-day-wide-events times))
-           (result (chime--notifications event)))
-      (chime--log-silently "Input times: %d" (length times))
-      (chime--log-silently "After day-wide filter: %d" (length filtered-times))
-      (chime--log-silently "Final notifications: %d" (length result))
-
-      (if (> (length result) 0)
-          (progn
-            (chime--log-silently "✓ Notification WOULD be generated")
-            (dolist (notif result)
-              (chime--log-silently "  Message: %s" (car notif))
-              (chime--log-silently "  Severity: %s" (cdr notif))))
-        (chime--log-silently "✗ Notification would NOT be generated")
-        (chime--log-silently "\nPossible reasons:")
-        (when (= (length filtered-times) 0)
-          (chime--log-silently "  - Timestamp filtered out as day-wide event"))
-        (when (not (chime--timestamp-within-interval-p event-time interval))
-          (chime--log-silently "  - Event not within %d-minute interval" interval))))
+    (chime--debug-filter-check-timestamp timestamp-str)
+    (chime--debug-filter-check-time-match now event-time interval)
+    (chime--debug-filter-check-interval event-time interval)
+    (chime--debug-filter-check-pipeline event event-time interval)
 
     (chime--log-silently "=== End Chime Debug ===\n")
     (message "Chime: Notification filtering debug complete - see *Messages*")))
