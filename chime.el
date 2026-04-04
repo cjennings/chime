@@ -1067,10 +1067,12 @@ Returns an alist of (DATE-STRING . EVENTS-LIST)."
   (let* ((hours (/ lookahead-minutes 60))
          (days (/ hours 24))
          (timeframe (cond
-                     ((>= days 7) (format "%d days" days))
-                     ((>= hours 24) (format "%.1f days" (/ hours 24.0)))
-                     ((>= hours 1) (format "%d hours" hours))
-                     (t (format "%d minutes" lookahead-minutes))))
+                     ((>= days 7) (format "%d day%s" days (if (= days 1) "" "s")))
+                     ((>= hours 24) (let ((d (/ hours 24.0)))
+                                      (format "%.1f day%s" d (if (= d 1.0) "" "s"))))
+                     ((>= hours 1) (format "%d hour%s" hours (if (= hours 1) "" "s")))
+                     (t (format "%d minute%s" lookahead-minutes
+                                (if (= lookahead-minutes 1) "" "s")))))
          (header (format-time-string chime-tooltip-header-format))
          (increase-var "chime-tooltip-lookahead-hours"))
     (concat header "\n"
@@ -1240,9 +1242,8 @@ Tooltip shows events within `chime-tooltip-lookahead-hours' hours."
 
 (defun chime--get-tags (marker)
   "Retrieve tags of MARKER."
-  (-> (org-entry-get marker "TAGS")
-      (or "")
-      (org-split-string  ":")))
+  (when-let* ((tags-str (org-entry-get marker "TAGS")))
+    (org-split-string tags-str ":")))
 
 (defun chime--whitelist-predicates ()
   "Return list of whitelist predicate functions.
