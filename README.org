@@ -1,21 +1,12 @@
 * CHIME Heralds Imminent Modeline Events
 
-[[#about][About]] | [[#features][Features]] | [[#installation][Installation]] | [[#quick-start][Quick Start]] | [[#configuration][Configuration]] | [[#usage][Usage]] | [[#troubleshooting][Troubleshooting]] | [[#testing][Testing]] | [[#credits][Credits]]
+[[#features][Features]] | [[#installation][Installation]] | [[#quick-start][Quick Start]] | [[#configuration][Configuration]] | [[#usage][Usage]] | [[#troubleshooting][Troubleshooting]] | [[#testing][Development & Testing]] | [[#history][History]]
 
 [[https://www.gnu.org/software/emacs/][file:assets/made-for-emacs-badge.svg]]
 
 Customizable org notifications for Emacs with visual alerts, audible chimes, and modeline display.
 
-** About
-:PROPERTIES:
-:CUSTOM_ID: about
-:END:
-
 CHIME (backronym: *CHIME Heralds Imminent Modeline Events*) notifies you about upcoming org-agenda events. You get desktop notifications, an audible chime, and your next event shows up in the modeline.
-
-This is an updated and maintained fork of the abandoned [[https://github.com/akhramov/org-wild-notifier.el][org-wild-notifier]] project, renamed to CHIME with bug-fixes and new features.
-
-Note: while I've found this package to be quite reliable, it's still undergoing feature development and will be changing frequently. 
 
 ** Features
 :PROPERTIES:
@@ -51,7 +42,9 @@ Note: while I've found this package to be quite reliable, it's still undergoing 
 :CUSTOM_ID: installation
 :END:
 
-This package is NOT YET available on MELPA.
+This package is NOT YET available on MELPA, but is coming soon! 
+
+*Requirements:* Emacs 27.1+, org-mode 9.0+, and the =alert=, =dash=, and =async= packages. Package managers (=package-vc-install=, =straight=, =quelpa=) will pull these dependencies automatically.
 
 *** package-vc-install (Emacs 29+)
 
@@ -96,7 +89,20 @@ This package is NOT YET available on MELPA.
   (chime-mode 1))
 #+END_SRC
 
-*** Manual Installation (Recommended for Development)
+*** straight.el
+
+#+BEGIN_SRC elisp
+(straight-use-package
+ '(chime :type git :host github :repo "cjennings/chime"))
+#+END_SRC
+
+*** quelpa
+
+#+BEGIN_SRC elisp
+(quelpa '(chime :fetcher github :repo "cjennings/chime"))
+#+END_SRC
+
+*** Manual Installation
 
 #+BEGIN_SRC elisp
 ;; Add to load-path
@@ -571,50 +577,6 @@ For filtering logic that goes beyond keywords and tags, you can write custom pre
 
 The built-in =chime-done-keywords-predicate= is in the blacklist by default, filtering out DONE items.
 
-*** Advanced Settings
-
-**** Failure Warnings
-
-If the async event check fails repeatedly (e.g., due to a misconfigured org file), chime will show a warning after a configurable number of consecutive failures:
-
-#+BEGIN_SRC elisp
-;; Warn after 5 consecutive failures (default)
-(setq chime-max-consecutive-failures 5)
-
-;; Disable failure warnings
-(setq chime-max-consecutive-failures 0)
-#+END_SRC
-
-**** Validation Retries
-
-On startup, chime validates that =org-agenda-files= is populated. If your config loads org-agenda-files asynchronously (e.g., via idle timers), chime will retry validation a few times before giving up:
-
-#+BEGIN_SRC elisp
-;; Retry validation 3 times before showing error (default)
-(setq chime-validation-max-retries 3)
-
-;; Show error immediately if org-agenda-files is empty
-(setq chime-validation-max-retries 0)
-#+END_SRC
-
-**** Extra Alert Arguments
-
-Pass additional arguments to every =alert= call (see alert.el documentation for available options):
-
-#+BEGIN_SRC elisp
-;; Example: always use a specific alert style
-(setq chime-extra-alert-plist '(:style libnotify))
-#+END_SRC
-
-**** Async Environment Variables
-
-If you have custom variables that need to be available in chime's async subprocess (e.g., for custom predicate functions), add their name patterns:
-
-#+BEGIN_SRC elisp
-;; Inject custom variables into the async process
-(setq chime-additional-environment-regexes '("my-custom-var"))
-#+END_SRC
-
 *** All-Day Events
 
 Chime distinguishes between *timed events* (with specific times like =10:00=) and *all-day events* (without times, such as birthdays or holidays).
@@ -908,78 +870,51 @@ After setup, birthdays will:
 - ✓ Still export to vCard via org-contacts
 - ✓ Automatically include timestamps for new contacts
 
-** Usage
-:PROPERTIES:
-:CUSTOM_ID: usage
-:END:
+*** Advanced Settings
 
-*** Basic Event with Timestamp
+**** Failure Warnings
 
-#+BEGIN_SRC org
-,* Meeting with Team
-<2025-10-25 Sat 14:00>
+If the async event check fails repeatedly (e.g., due to a misconfigured org file), chime will show a warning after a configurable number of consecutive failures:
+
+#+BEGIN_SRC elisp
+;; Warn after 5 consecutive failures (default)
+(setq chime-max-consecutive-failures 5)
+
+;; Disable failure warnings
+(setq chime-max-consecutive-failures 0)
 #+END_SRC
 
-Will notify at 14:00 (if =chime-alert-intervals= includes =(0 . severity)=).
+**** Validation Retries
 
-*** Events with SCHEDULED or DEADLINE
+On startup, chime validates that =org-agenda-files= is populated. If your config loads org-agenda-files asynchronously (e.g., via idle timers), chime will retry validation a few times before giving up:
 
-#+BEGIN_SRC org
-,* TODO Call Doctor
-SCHEDULED: <2025-10-25 Sat 10:00>
+#+BEGIN_SRC elisp
+;; Retry validation 3 times before showing error (default)
+(setq chime-validation-max-retries 3)
+
+;; Show error immediately if org-agenda-files is empty
+(setq chime-validation-max-retries 0)
 #+END_SRC
 
-*** Repeating Events
+**** Extra Alert Arguments
 
-Repeating timestamps are fully supported:
+Pass additional arguments to every =alert= call (see alert.el documentation for available options):
 
-#+BEGIN_SRC org
-,* TODO Weekly Team Meeting
-SCHEDULED: <2025-10-25 Sat 14:00 +1w>
-
-,* TODO Daily Standup
-SCHEDULED: <2025-10-25 Sat 09:00 +1d>
-
-,* TODO Review Email
-SCHEDULED: <2025-10-25 Sat 08:00 .+1d>
+#+BEGIN_SRC elisp
+;; Example: always use a specific alert style
+(setq chime-extra-alert-plist '(:style libnotify))
 #+END_SRC
 
-Supported repeaters:
-- =+1w= - Repeat weekly from original date
-- =.+1d= - Repeat daily from completion
-- =++1w= - Repeat weekly from scheduled date
+**** Async Environment Variables
 
-** Known Limitations
-:PROPERTIES:
-:CUSTOM_ID: known-limitations
-:END:
+If you have custom variables that need to be available in chime's async subprocess (e.g., for custom predicate functions), add their name patterns:
 
-*** S-expression Diary Entries Are Not Supported
-
-Note: org-contacts users will quickly discover the above unsupported format is how org-contacts integrate birthdays into your calendar. If you use org-contacts, you will not be automatically notified about your contacts birthdays. 
-
-Specifically, this format is *not supported*:
-
-#+BEGIN_SRC org
-,* TODO Daily Standup
-SCHEDULED: <%%(memq (calendar-day-of-week date) '(1 2 3 4 5))>
+#+BEGIN_SRC elisp
+;; Inject custom variables into the async process
+(setq chime-additional-environment-regexes '("my-custom-var"))
 #+END_SRC
 
-For those using this format outside of org-contacts, your workaround is to use standard repeating timestamps instead:
-
-#+BEGIN_SRC org
-,* TODO Daily Standup
-SCHEDULED: <2025-10-24 Fri 09:00 +1d>
-#+END_SRC
-
-For Monday-Friday events, you can either:
-1. Accept weekend notifications (mark as DONE on weekends)
-2. Create 5 separate entries, one for each weekday with =+1w= repeater
-
-** Full Example Configuration
-:PROPERTIES:
-:CUSTOM_ID: full-example-configuration
-:END:
+*** Full Example Configuration
 
 #+BEGIN_SRC elisp
   (use-package chime
@@ -1022,10 +957,63 @@ For Monday-Friday events, you can either:
     (chime-mode 1))
 #+END_SRC
 
-** Manual Check
+**** Events with SCHEDULED or DEADLINE
+
+#+BEGIN_SRC org
+,* TODO Call Doctor
+SCHEDULED: <2025-10-25 Sat 10:00>
+#+END_SRC
+
+**** Repeating Events
+
+Repeating timestamps are fully supported:
+
+#+BEGIN_SRC org
+,* TODO Weekly Team Meeting
+SCHEDULED: <2025-10-25 Sat 14:00 +1w>
+
+,* TODO Daily Standup
+SCHEDULED: <2025-10-25 Sat 09:00 +1d>
+
+,* TODO Review Email
+SCHEDULED: <2025-10-25 Sat 08:00 .+1d>
+#+END_SRC
+
+Supported repeaters:
+- =+1w= - Repeat weekly from original date
+- =.+1d= - Repeat daily from completion
+- =++1w= - Repeat weekly from scheduled date
+
+**** Known Limitations
+
+***** S-expression Diary Entries Are Not Supported
+
+Note: org-contacts users will quickly discover the above unsupported format is how org-contacts integrate birthdays into your calendar. If you use org-contacts, you will not be automatically notified about your contacts birthdays. 
+
+Specifically, this format is *not supported*:
+
+#+BEGIN_SRC org
+,* TODO Daily Standup
+SCHEDULED: <%%(memq (calendar-day-of-week date) '(1 2 3 4 5))>
+#+END_SRC
+
+For those using this format outside of org-contacts, your workaround is to use standard repeating timestamps instead:
+
+#+BEGIN_SRC org
+,* TODO Daily Standup
+SCHEDULED: <2025-10-24 Fri 09:00 +1d>
+#+END_SRC
+
+For Monday-Friday events, you can either:
+1. Accept weekend notifications (mark as DONE on weekends)
+2. Create 5 separate entries, one for each weekday with =+1w= repeater
+
+** Usage
 :PROPERTIES:
-:CUSTOM_ID: manual-check
+:CUSTOM_ID: usage
 :END:
+
+*** Manually Trigger a Notification Check
 
 You can manually trigger a notification check:
 
@@ -1038,6 +1026,15 @@ To update the modeline display *without* sending notifications (useful after syn
 #+BEGIN_SRC elisp
 M-x chime-refresh-modeline
 #+END_SRC
+
+*** Basic Event with Timestamp
+
+#+BEGIN_SRC org
+,* Meeting with Team
+<2025-10-25 Sat 14:00>
+#+END_SRC
+
+Will notify at 14:00 (if =chime-alert-intervals= includes =(0 . severity)=).
 
 ** Troubleshooting
 :PROPERTIES:
@@ -1064,25 +1061,27 @@ This loads =chime-debug.el= and gives you these commands:
 
 It also monitors event loading timing and async process performance in the background, logging to =*Messages*=.
 
-*** No notifications appearing
+*** No Notifications Appearing
 
-1. Verify chime-mode is enabled: =M-: chime-mode=
-2. Check that alert is configured correctly:
+1. Verify a notification daemon is running on your system (e.g., =dunst=, =mako=, or =swaync= on Linux; macOS and Windows have built-in notification support)
+2. Verify chime-mode is enabled: =M-: chime-mode=
+3. Check that alert is configured for your system:
    #+BEGIN_SRC elisp
-   (setq alert-default-style 'libnotify)  ; or 'notifications on some systems
+   (setq alert-default-style 'libnotify)  ; Linux with libnotify
+   ;; or 'notifications for D-Bus, 'osx-notifier for macOS, etc.
    #+END_SRC
-3. Manually test: =M-x chime-check=
+4. Manually test: =M-x chime-check=
 4. Check =*Messages*= buffer for error messages
 5. Enable [[#enabling-debug-mode][debug mode]] for detailed diagnostics
 
-*** No sound playing
+*** No Sound Playing
 
 1. Verify sound is enabled: =M-: chime-play-sound= should return =t=
 2. Check sound file exists: =M-: (file-exists-p chime-sound-file)=
 3. Test sound directly: =M-: (play-sound-file chime-sound-file)=
 4. Ensure your system has audio support configured
 
-*** Events not being detected
+*** Events Not Being Detected
 
 1. Ensure files are in =org-agenda-files=
 2. Verify timestamps have time components: =<2025-10-25 Sat 14:00>= not =<2025-10-25 Sat>=
@@ -1091,7 +1090,7 @@ It also monitors event loading timing and async process performance in the backg
 
 *** org-contacts diary sexp errors
 
-If you see errors like "Bad sexp at line 2: (let ((entry) (date '(10 29 2025))) (org-contacts-anniversaries))" in your =*emacs:err*= buffer, this is because chime's async subprocess doesn't have org-contacts loaded.
+If you see errors like "Bad sexp at line 2: (let ((entry) (date '(10 29 2025))) (org-contacts-anniversaries))" in your =*emacs:err*= buffer, this is because Chime's async subprocess doesn't have org-contacts loaded.
 
 *Symptoms:*
 - No events appear in modeline despite having scheduled items
@@ -1142,7 +1141,7 @@ Restart chime or run =M-x chime-check= to verify birthdays appear without errors
 
 Org-mode diary sexps like =%%(org-contacts-anniversaries)= are dynamic expressions evaluated during agenda building. Chime runs agenda building in an async subprocess for performance, but that subprocess needs the generating package (org-contacts) loaded. Chime includes org-contacts as a soft dependency, but it must be installed for the sexp to work.
 
-*** Multiple Emacs instances producing duplicate notifications
+*** Multiple Emacs Instances Producing Duplicate Notifications
 
 If you receive duplicate notifications for every event, you likely have multiple Emacs processes running with chime-mode enabled.
 
@@ -1196,21 +1195,35 @@ emacs &  # This creates a SECOND chime instance!
   alias emacs="emacsclient -c -a ''"  # Auto-start daemon if not running
   #+END_SRC
 
-** Requirements
-:PROPERTIES:
-:CUSTOM_ID: requirements
-:END:
-
-- Emacs 27.1+
-- Org-mode 9.0+
-- =alert= package
-- =dash= package
-- =async= package
-
-** Testing
+** Development & Testing
 :PROPERTIES:
 :CUSTOM_ID: testing
 :END:
+
+*** Development
+
+Clone the repo and load from source:
+
+#+BEGIN_SRC bash
+git clone https://github.com/cjennings/chime.git
+#+END_SRC
+
+#+BEGIN_SRC elisp
+(add-to-list 'load-path "~/path/to/chime")
+(require 'chime)
+#+END_SRC
+
+Before submitting changes, check for byte-compilation warnings:
+
+#+BEGIN_SRC bash
+cd tests
+make validate    # Check parentheses balance
+make lint        # Full elisp-lint (requires elisp-lint package)
+#+END_SRC
+
+Bug reports and patches welcome at https://github.com/cjennings/chime/issues.
+
+*** Testing
 
 600+ ERT tests. See [[file:TESTING.org][TESTING.org]] for details on running them and the test architecture.
 
@@ -1221,28 +1234,20 @@ make test       # Run all tests
 make test-file FILE=modeline  # Run specific test file
 #+END_SRC
 
-** License
+** History
 :PROPERTIES:
-:CUSTOM_ID: license
+:CUSTOM_ID: history
 :END:
 
-GPL-3.0
-
-** Credits
-:PROPERTIES:
-:CUSTOM_ID: credits
-:END:
+This is an updated and maintained fork of the abandoned [[https://github.com/akhramov/org-wild-notifier.el][org-wild-notifier]] project, renamed to CHIME with bug fixes and new features.
 
 All credit and thanks to Artem Khramov for his work on [[https://github.com/akhramov/org-wild-notifier.el][org-wild-notifier]], which served me well for some time. Sadly, the author deprecated org-wild-notifier on Aug 2, 2025 in favor of [[https://github.com/spegoraro/org-alert][org-alert]]. I began fixing bugs and adding features, and it eventually became CHIME.
 
 I plan to keep maintaining this out of appreciation for Artem's work and for the Emacs community.
 
-** Migration from org-wild-notifier
-:PROPERTIES:
-:CUSTOM_ID: migration-from-org-wild-notifier
-:END:
+*** Migration from org-wild-notifier
 
-If you're migrating from org-wild-notifier, you'll need to update your configuration:
+If you're migrating from org-wild-notifier, update your configuration:
 
 1. Change package name:
    - =(require 'org-wild-notifier)= → =(require 'chime)=
@@ -1255,11 +1260,10 @@ If you're migrating from org-wild-notifier, you'll need to update your configura
    - =org-wild-notifier-check= → =chime-check=
 
 4. Note: The =:WILD_NOTIFIER_NOTIFY_BEFORE:= / =:CHIME_NOTIFY_BEFORE:= property has been removed. Use the global =chime-alert-intervals= variable instead (e.g., =(setq chime-alert-intervals '((30 . low) (15 . medium) (5 . medium) (0 . high)))=).
-
-** Development
+** License
 :PROPERTIES:
-:CUSTOM_ID: development
+:CUSTOM_ID: license
 :END:
 
-See [[file:TESTING.org][TESTING.org]].
+[[file:LICENSE][GPL-3.0]]
 

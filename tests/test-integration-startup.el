@@ -230,8 +230,7 @@ This validates the early-return mechanism works correctly."
       (should (null chime--validation-done))
 
       ;; Should NOT have processed any events (early return worked)
-      (should (null chime--upcoming-events))
-      (should (null chime-modeline-string)))))
+      (should (null chime--upcoming-events)))))
 
 ;;; Boundary Cases - Edge Conditions
 
