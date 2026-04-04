@@ -640,10 +640,6 @@ in order to ignore seconds."
        (length)
        (= 1)))
 
-(defun chime--today ()
-  "Get the timestamp for the beginning of current day."
-  (apply 'encode-time
-         (append '(0 0 0) (nthcdr 3 (decode-time (current-time))))))
 
 (defun chime--timestamp-within-interval-p (timestamp interval)
   "Check whether TIMESTAMP is within notification INTERVAL.
