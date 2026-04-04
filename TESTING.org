@@ -1,221 +1,320 @@
-#+TITLE: Chime Test Suite Documentation
-#+AUTHOR: Chime Development Team
+#+TITLE: Chime Test Suite
+#+AUTHOR: Craig Jennings
+#+DATE: 2026-04-04
 
-* Overview
+Quick reference for running and writing tests in the Chime project.
 
-CHIME includes a comprehensive, future-proof test suite to ensure reliability and prevent regressions:
+* Quick start
 
-- *339 total tests* across 23 test files
-  - Fast, isolated unit tests of individual functions
-  - Comprehensive integration scenarios using real org-gcal patterns
-  - *Dynamic timestamp generation* - tests work regardless of current date
-  - No hardcoded dates that expire or cause failures over time
+#+begin_src sh
+# From the project root:
+make test                              # Run all tests (unit + integration)
+make test-unit                         # Run unit tests only
+make test-integration                  # Run integration tests only
 
-The test suite covers:
-- Timestamp parsing and time calculations
-- All-day event detection and notifications
-- Event filtering (keywords, tags, predicates)
-- Tooltip and modeline formatting
-- Notification text generation
-- Title sanitization and edge cases
-- Real-world org-gcal integration scenarios
-- Overdue TODO handling and day-wide alerts
-- Whitelist/blacklist conflict resolution
+# From the tests/ directory (more options):
+make test-file FILE=validate           # Run tests in one file (fuzzy match)
+make test-one TEST=pilot               # Run a single test (fuzzy match)
+make count                             # Count tests per file
+#+end_src
 
-* Running Tests with the Makefile
+* Running tests
 
-The =tests/= directory includes a comprehensive Makefile for easy test execution and validation:
+All test logic lives in =tests/Makefile=. The root Makefile delegates to it, so all commands work from either the project root or the =tests/= directory.
 
-** Run All Tests
+| Command | Purpose |
+|---------+---------|
+| =make test= | Run all tests (unit + integration) |
+| =make test-unit= | Run unit tests only |
+| =make test-integration= | Run integration tests only (=test-integration-*.el=) |
+| =make test-file FILE=overdue= | Run tests in one file (fuzzy match) |
+| =make test-one TEST=pilot= | Run a single test (fuzzy match) |
+| =make test-name TEST=pattern= | Run tests matching an ERT name pattern |
+| =make count= | Count tests per file, sorted by count |
+| =make list= | List all test names |
+| =make validate= | Check parentheses balance in all files |
+| =make lint= | Run elisp-lint on all files |
+| =make check-deps= | Verify all dependencies are installed |
+| =make clean= | Remove byte-compiled files and logs |
+| =make help= | Show all available commands |
 
-#+BEGIN_SRC bash
-cd tests
-make test
-#+END_SRC
+Each test file runs in its own Emacs process for isolation. Integration tests are identified by the =test-integration-= prefix. Dependencies are auto-detected from =~/.emacs.d/elpa/=. Override with =EMACS= or =ELPA_DIR= environment variables.
 
-This runs all 339 tests across 23 test files. Expected output:
+** Examples
 
-#+BEGIN_EXAMPLE
-✓ All dependencies found
-Running 339 tests...
-Ran 339 tests, 339 results as expected, 0 unexpected
-✓ All 339 tests passed!
-#+END_EXAMPLE
+#+begin_src sh
+# Run one file by fuzzy match
+make test-file FILE=validate-configuration
+# Finds: test-chime-validate-configuration.el
 
-** Run Tests for a Specific File
+# Run one test by fuzzy match
+make test-one TEST=pilot
+# Finds: test-chime-validate-configuration-normal-valid-config-returns-nil
 
-Use fuzzy matching to run tests from a single file:
+# Run tests matching an ERT name pattern
+make test-name TEST="test-chime-check-*"
 
-#+BEGIN_SRC bash
-cd tests
-make test-file FILE=modeline
-#+END_SRC
+# Use a specific Emacs version
+make EMACS=emacs29 test
+#+end_src
 
-The =FILE= parameter supports partial matching, so these all work:
-- =make test-file FILE=modeline= → runs =test-chime-modeline.el=
-- =make test-file FILE=overdue= → runs =test-chime-overdue-todos.el=
-- =make test-file FILE=notification-text= → runs =test-chime-notification-text.el=
+* Writing tests
 
-** Run a Single Test
+** File structure
 
-Run one specific test by name (uses fuzzy matching):
+Every test file loads =test-bootstrap.el=, which sets up packages, dependencies, and chime itself:
 
-#+BEGIN_SRC bash
-cd tests
-make test-one TEST=all-day
-#+END_SRC
+#+begin_src elisp
+;;; test-chime-FEATURE.el --- Tests for FEATURE -*- lexical-binding: t; -*-
+
+;; Copyright (C) 2026 Craig Jennings
+;; Author: Craig Jennings <c@cjennings.net>
+;; License: GPL-3.0-or-later
+
+;;; Commentary:
+;; Unit tests for FEATURE.
+
+;;; Code:
+
+(require 'test-bootstrap (expand-file-name "test-bootstrap.el"))
+(require 'testutil-time)     ; if using time utilities
+(require 'testutil-events)   ; if using event utilities
+
+;;; Normal Cases
+
+(ert-deftest test-chime-FEATURE-normal-description ()
+  "Descriptive docstring."
+  (should (equal expected (function-under-test input))))
+
+;;; Boundary Cases
+;;; Error Cases
+
+(provide 'test-chime-FEATURE)
+;;; test-chime-FEATURE.el ends here
+#+end_src
+
+** Naming convention
+
+#+begin_example
+test-chime-FEATURE-CATEGORY-description
+             |        |
+             |        +-- normal, boundary, error
+             +----------- function or module name
+#+end_example
 
 Examples:
-- =make test-one TEST=all-day= → runs first test matching "all-day"
-- =make test-one TEST=overdue-disabled= → runs test for overdue disabled behavior
-- =make test-one TEST=sanitize-opening-paren= → runs specific sanitization test
+- =test-chime-get-tags-normal-single-tag=
+- =test-chime-extract-time-boundary-midnight=
+- =test-chime-validate-configuration-error-missing-deps=
 
-** Run Unit Tests Only
+** Test categories
 
-#+BEGIN_SRC bash
-make test-unit
-#+END_SRC
+Tests are split into three categories:
 
-** Run Integration Tests Only
+- *Normal*: Standard inputs, expected use cases
+- *Boundary*: Empty inputs, nil values, single-element lists, unicode, max values
+- *Error*: Invalid inputs, missing dependencies, malformed data
 
-#+BEGIN_SRC bash
-make test-integration
-#+END_SRC
+* Test infrastructure
 
-** Run a Specific Test by Name
+** test-bootstrap.el
 
-#+BEGIN_SRC bash
-make test-name TEST=test-chime-check-early-return-on-validation-failure
-#+END_SRC
+Loads =ert=, =dash=, =alert=, =async=, =org-agenda=, and =chime.el= so test files don't repeat that boilerplate. For debug tests, set =chime-debug= before requiring:
 
-** Use a Specific Emacs Version
+#+begin_src elisp
+(setq chime-debug t)
+(require 'test-bootstrap (expand-file-name "test-bootstrap.el"))
+#+end_src
 
-#+BEGIN_SRC bash
-make EMACS=emacs29 test
-#+END_SRC
+** testutil-time.el --- Dynamic timestamps
 
-** Syntax Validation
+Generates timestamps relative to "now" so tests never expire. The base time is always =current-time + 30 days= at =10:00 AM= for consistency.
 
-Validate all Emacs Lisp syntax (checks parentheses balance):
+*** Core functions
 
-#+BEGIN_SRC bash
-cd tests
-make validate
-#+END_SRC
+| Function | Purpose | Example |
+|----------+---------+---------|
+| =test-time-now= | Base time (today+30 at 10:00) | =(test-time-now)= |
+| =test-time-at= | Relative to now (days, hours, min) | =(test-time-at 0 2 0)= -> 2h from now |
+| =test-time-today-at= | Today at specific time | =(test-time-today-at 14 30)= -> 2:30 PM |
+| =test-time-tomorrow-at= | Tomorrow at specific time | =(test-time-tomorrow-at 9 0)= |
+| =test-time-yesterday-at= | Yesterday at specific time | =(test-time-yesterday-at 17 0)= |
+| =test-time-days-from-now= | N days in future | =(test-time-days-from-now 3 14 0)= |
+| =test-time-days-ago= | N days in past | =(test-time-days-ago 7)= |
 
-This runs =check-parens= on all 26 =.el= files (23 test files + chime.el + 2 testutil files).
+*** Timestamp strings
 
-** Check Test Inventory
+| Function | Purpose | Output |
+|----------+---------+--------|
+| =test-timestamp-string= | Org timestamp | =<2026-05-04 Mon 14:00>= |
+| =test-timestamp-string TIME t= | All-day timestamp | =<2026-05-04 Mon>= |
+| =test-timestamp-range-string= | Date range | =<2026-05-04 Mon>--<2026-05-07 Thu>= |
+| =test-timestamp-repeating= | Repeating event | =<2026-05-04 Mon +1w>= |
 
-See a breakdown of tests by file:
+*** Mock macro
 
-#+BEGIN_SRC bash
-cd tests
-make count
-#+END_SRC
+#+begin_src elisp
+(with-test-time (test-time-now)
+  ;; current-time is mocked to return the test base time
+  (should (equal (current-time) (test-time-now))))
+#+end_src
 
-Example output:
+** testutil-events.el --- Event creation
 
-#+BEGIN_EXAMPLE
-Test Count by File:
-──────────────────────────────────────────────
-30 tests - test-chime-notification-text.el
-30 tests - test-chime-sanitize-title.el
-25 tests - test-chime-timestamp-parse.el
-...
-──────────────────────────────────────────────
-Total: 339 tests across 23 files
-#+END_EXAMPLE
+Builds org events and event data structures for tests.
 
-** Other Makefile Targets
+*** Creating org content
 
-#+BEGIN_SRC bash
-make help           # Show all available targets with descriptions
-make check-deps     # Verify required ELPA dependencies are installed
-make lint           # Run byte-compilation warnings (optional - requires setup)
-#+END_SRC
+#+begin_src elisp
+;; Single timed event
+(test-create-org-event "Meeting" (test-time-now) t)
+;; => "* TODO Meeting\nSCHEDULED: <2026-05-04 Mon 10:00>\n"
 
-* Test Architecture
+;; All-day event
+(test-create-org-event "Birthday" (test-time-now) nil t)
+;; => "* Birthday\n<2026-05-04 Mon>\n"
 
-** Dynamic Timestamp Generation
+;; Multiple events
+(test-create-org-events
+ `(("Meeting" ,(test-time-at 0 2 0) t)
+   ("Call" ,(test-time-at 0 4 0) t)))
+#+end_src
 
-Tests use a dynamic timestamp generation system (=testutil-time.el=) that creates timestamps relative to a stable base time:
+*** Gathering events from content
 
-#+BEGIN_SRC elisp
-;; Instead of hardcoded dates:
-(encode-time 0 0 14 24 10 2025)  ; Fails after Oct 2025
+#+begin_src elisp
+;; Gather all events from org content string
+(let ((events (test-gather-events-from-content content)))
+  (should (= 2 (length events))))
 
-;; Tests use dynamic generation:
-(test-time-today-at 14 0)        ; Always works
-(test-time-tomorrow-at 9 0)      ; Relative to stable base
-(test-time-days-from-now 7)      ; 7 days from base time
-#+END_SRC
+;; Gather exactly one event (errors if != 1)
+(let ((event (test-gather-single-event-from-content content)))
+  (should (string= "Meeting" (cdr (assoc 'title event)))))
+#+end_src
 
-This ensures:
-- Tests never expire or fail due to date changes
-- Time relationships remain consistent
-- Tests can run in any year without modification
-- Easier to understand test intent ("tomorrow at 9am" vs "2025-10-25 09:00")
+*** Creating event data directly
 
-** Time Mocking
+#+begin_src elisp
+;; Simple event (title, time, optional interval/severity)
+(test-make-simple-event "Call" (test-time-now) 5 'high)
 
-Tests use =with-test-time= macro to mock =current-time= for deterministic testing:
+;; Full control over data structure
+(test-make-event-data "Meeting"
+                      (list (cons (test-timestamp-string time) time))
+                      '((10 . medium) (0 . high)))
+#+end_src
 
-#+BEGIN_SRC elisp
-(let ((now (test-time-today-at 14 0))
-      (event-time (test-time-today-at 14 30)))
-  (with-test-time now
-    ;; Inside this block, current-time returns our mocked "now"
-    ;; Event is 30 minutes in the future
-    (should (chime--should-notify-p event-time 30))))
-#+END_SRC
+*** Convenience macros
 
-** Validation Infrastructure
+#+begin_src elisp
+;; Temp file with auto-cleanup
+(with-test-event-file (test-create-org-event "Meeting" (test-time-now))
+  (with-current-buffer test-buffer
+    (should (search-forward "Meeting" nil t))))
 
-The test suite includes validation to prevent syntax errors:
+;; Gather events with auto-cleanup
+(with-gathered-events (test-create-org-event "Call" (test-time-now))
+                      events
+  (should (= 1 (length events))))
 
-*** Git Pre-commit Hook
+;; Standard setup/teardown (test base dir lifecycle)
+(with-test-setup
+  (let ((file (chime-create-temp-test-file)))
+    (should (file-exists-p file))))
 
-Automatically validates syntax before each commit:
-- Runs =check-parens= on all staged =.el= files
-- Blocks commits with syntax errors
-- Can be bypassed with =--no-verify= if needed
+;; Override chime config for a test
+(with-chime-config
+  chime-modeline-lookahead-minutes 1440
+  chime-tooltip-lookahead-hours 24
+  (should (= chime-modeline-lookahead-minutes 1440)))
 
-*** Makefile Integration
+;; Create org file from event specs
+(with-org-event-file
+    (("Meeting" event-time t)
+     ("Birthday" bday-time nil t))
+    org-file
+  (setq org-agenda-files (list org-file)))
+#+end_src
 
-- =make validate= - Quick syntax check (no external dependencies)
-- =make lint= - Comprehensive linting (requires =elisp-lint= setup)
+** testutil-general.el --- File system utilities
 
-* Running Tests Manually
+Manages test directories and temp files under =~/.temp-chime-tests/=.
 
-If you prefer not to use the Makefile:
+| Function | Purpose |
+|----------+---------|
+| =chime-create-test-base-dir= | Create test root (idempotent) |
+| =chime-delete-test-base-dir= | Recursively delete test root |
+| =chime-create-temp-test-file= | Create uniquely named temp file |
+| =chime-create-temp-test-file-with-content= | Temp file with content |
+| =chime-create-test-subdirectory= | Create a subdirectory under test root |
+| =chime-create-directory-or-file-ensuring-parents= | Create dir (trailing /) or file |
 
-#+BEGIN_SRC bash
-cd tests
+All paths are sandboxed under =chime-test-base-dir= -- attempts to escape are rejected with an error.
 
-# Run all tests
-emacs --batch -Q \
-  -L . \
-  -L ~/.emacs.d/elpa/dash-2.20.0 \
-  -L ~/.emacs.d/elpa/alert-20240105.2046 \
-  -L ~/.emacs.d/elpa/async-20250107.2200 \
-  --eval '(dolist (f (directory-files "." t "^test-.*\\.el$")) (load f))' \
-  --eval '(ert-run-tests-batch-and-exit)'
+* Key patterns
 
-# Run one test file
-emacs --batch -Q -L . -L /path/to/deps \
-  -l test-chime-modeline.el \
-  -f ert-run-tests-batch-and-exit
-#+END_SRC
+** Mocking external dependencies
 
-**Note:** The Makefile is recommended as it automatically finds your ELPA dependencies and provides better output formatting.
+#+begin_src elisp
+(cl-letf (((symbol-function 'file-exists-p) (lambda (_) t))
+          ((symbol-function 'require) (lambda (_ &optional _ _) t)))
+  ;; these functions are mocked only within this scope
+  )
+#+end_src
 
-* For Developers
+** Mocking time
 
-For more options and details, run:
+#+begin_src elisp
+(with-test-time (test-time-today-at 9 55)
+  ;; current-time now returns 9:55 AM
+  (should (chime--timestamp-within-interval-p timestamp 10)))
+#+end_src
 
-#+BEGIN_SRC bash
-make help
-#+END_SRC
+** Overriding config
 
-This will show all available Makefile targets with descriptions.
+#+begin_src elisp
+(with-chime-config
+  chime-sound-file nil
+  chime-alert-intervals '((10 . medium))
+  (chime--process-notifications events))
+#+end_src
+
+* Important notes
+
+1. *Load path*: The Makefile automatically finds dependencies in =~/.emacs.d/elpa/=
+2. *Fuzzy matching*: =test-file= and =test-one= support partial names
+3. *Test logs*: Output saved to =test-output.log=, =test-file-output.log=, etc. in =tests/=
+4. *Mock warnings*: "Redefining 'file-exists-p' might break native compilation" is normal and expected
+5. *Dynamic timestamps*: Never hardcode dates -- use =testutil-time.el= functions
+6. *Test isolation*: Each test file runs in its own Emacs process
+
+* Dependencies
+
+Required packages (auto-detected by Makefile):
+- =dash= (list manipulation)
+- =alert= (notifications)
+- =async= (async processes)
+- =org-agenda= (built-in, events source)
+
+Use =make check-deps= (from =tests/=) to verify all dependencies are installed.
+
+* Test inventory
+
+645 tests across 53 files (as of 2026-04-04).
+
+Top files by count:
+| File | Tests |
+|------+-------|
+| test-convert-org-contacts-birthdays.el | 35 |
+| test-chime-sanitize-title.el | 30 |
+| test-chime-notification-text.el | 30 |
+| test-chime-timestamp-parse.el | 26 |
+| test-chime-12hour-format.el | 26 |
+| test-chime-time-left.el | 24 |
+| test-chime-modeline.el | 20 |
+| test-chime-time-utilities.el | 19 |
+| test-chime-all-day-events.el | 19 |
+| test-chime-update-modeline.el | 18 |
+| test-chime-has-timestamp.el | 18 |
+
+Run =make count= from =tests/= for the full breakdown.
