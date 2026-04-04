@@ -254,19 +254,16 @@ The modeline will display the soonest event within the lookahead window, formatt
 - Default: =⏰ Meeting with Team at 02:30 PM (in 15 minutes)=
 - Updates automatically every minute
 
-**** Minor Mode Lighter
+**** Minor mode lighter
 
-The lighter shown in the modeline when =chime-mode= is active:
+By default, the minor mode lighter is empty — the =⏰= event display already tells you chime is running. If you want a separate indicator in the minor modes list:
 
 #+BEGIN_SRC elisp
-;; Default lighter (bell emoji)
-(setq chime-modeline-lighter " 🔔")
-
-;; Text-based lighter
+;; Show "Chime" in the minor modes list
 (setq chime-modeline-lighter " Chime")
 
-;; Minimal
-(setq chime-modeline-lighter " C")
+;; Or an emoji
+(setq chime-modeline-lighter " 🔔")
 #+END_SRC
 
 **** No-Events Text

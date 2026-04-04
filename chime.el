@@ -333,10 +333,11 @@ When nil, chime will not modify the modeline at all."
   :group 'chime
   :type 'boolean)
 
-(defcustom chime-modeline-lighter " 🔔"
-  "Text to display in the modeline when chime-mode is enabled.
-This is the mode lighter that appears in the modeline to indicate
-chime-mode is active."
+(defcustom chime-modeline-lighter ""
+  "Minor mode lighter shown in the modeline mode list.
+Empty by default because the event display in `global-mode-string'
+already indicates chime is active.  Set to a string like
+\" Chime\" or \" 🔔\" if you want a separate mode indicator."
   :package-version '(chime . "0.7.0")
   :group 'chime
   :type 'string)
