@@ -22,9 +22,9 @@ ASYNC_DIR = $(shell find $(ELPA_DIR) -maxdepth 1 -name 'async-*' -type d 2>/dev/
 LOADPATH = -L $(DASH_DIR) -L $(ALERT_DIR) -L $(ASYNC_DIR)
 
 # Test files
-ALL_TESTS = $(wildcard test-*.el)
-UNIT_TESTS = $(filter-out test-chime-gcal% test-chime-notifications.el test-chime-process-notifications.el,$(ALL_TESTS))
-INTEGRATION_TESTS = test-chime-notifications.el test-chime-process-notifications.el
+ALL_TESTS = $(filter-out test-bootstrap.el,$(wildcard test-*.el))
+UNIT_TESTS = $(filter-out test-integration-%.el,$(ALL_TESTS))
+INTEGRATION_TESTS = $(wildcard test-integration-*.el)
 
 # Colors for output (if terminal supports it)
 RED = \033[0;31m
@@ -32,7 +32,7 @@ GREEN = \033[0;32m
 YELLOW = \033[1;33m
 NC = \033[0m # No Color
 
-.PHONY: all test test-file test-one test-unit test-integration validate lint clean help check-deps
+.PHONY: all test test-file test-one test-name test-unit test-integration validate lint clean help check-deps
 
 # Default target
 all: test
@@ -55,16 +55,10 @@ check-deps:
 
 # Run all tests
 test: check-deps
-	@echo "$(YELLOW)Running all tests ($(words $(ALL_TESTS)) files, ~339 tests)...$(NC)"
-	@$(EMACS) $(EMACSFLAGS) $(LOADPATH) $(TESTFLAGS) \
-		--eval "(dolist (f (directory-files \".\" t \"^test-.*\\\\.el$$\")) (load f))" \
-		--eval '(ert-run-tests-batch-and-exit)' 2>&1 | tee test-output.log
-	@if [ $$? -eq 0 ]; then \
-		echo "$(GREEN)✓ All tests passed!$(NC)"; \
-	else \
-		echo "$(RED)✗ Some tests failed. See test-output.log for details.$(NC)"; \
-		exit 1; \
-	fi
+	@echo "$(YELLOW)Running all tests ($(words $(ALL_TESTS)) files)...$(NC)"
+	@$(MAKE) --no-print-directory test-unit
+	@$(MAKE) --no-print-directory test-integration
+	@echo "$(GREEN)[✓] All tests complete$(NC)"
 
 # Run tests in one file
 test-file: check-deps
@@ -117,31 +111,47 @@ endif
 # Run only unit tests
 test-unit: check-deps
 	@echo "$(YELLOW)Running unit tests ($(words $(UNIT_TESTS)) files)...$(NC)"
-	@for testfile in $(UNIT_TESTS); do \
+	@failed=0; \
+	for testfile in $(UNIT_TESTS); do \
 		echo "  Testing $$testfile..."; \
-	done
-	@$(EMACS) $(EMACSFLAGS) $(LOADPATH) $(TESTFLAGS) \
-		$(foreach file,$(UNIT_TESTS),-l $(file)) \
-		--eval '(ert-run-tests-batch-and-exit)' 2>&1 | tee test-unit-output.log
-	@if [ $$? -eq 0 ]; then \
-		echo "$(GREEN)✓ All unit tests passed!$(NC)"; \
+		$(EMACS) $(EMACSFLAGS) $(LOADPATH) $(TESTFLAGS) -l "$$testfile" \
+			--eval '(ert-run-tests-batch-and-exit)' || failed=$$((failed + 1)); \
+	done; \
+	if [ $$failed -eq 0 ]; then \
+		echo "$(GREEN)[✓] All unit tests passed$(NC)"; \
 	else \
-		echo "$(RED)✗ Some unit tests failed.$(NC)"; \
+		echo "$(RED)[✗] $$failed unit test file(s) failed$(NC)"; \
 		exit 1; \
 	fi
 
 # Run only integration tests
 test-integration: check-deps
 	@echo "$(YELLOW)Running integration tests ($(words $(INTEGRATION_TESTS)) files)...$(NC)"
-	@$(EMACS) $(EMACSFLAGS) $(LOADPATH) $(TESTFLAGS) \
-		$(foreach file,$(INTEGRATION_TESTS),-l $(file)) \
-		--eval '(ert-run-tests-batch-and-exit)' 2>&1 | tee test-integration-output.log
-	@if [ $$? -eq 0 ]; then \
-		echo "$(GREEN)✓ All integration tests passed!$(NC)"; \
+	@failed=0; \
+	for testfile in $(INTEGRATION_TESTS); do \
+		echo "  Testing $$testfile..."; \
+		$(EMACS) $(EMACSFLAGS) $(LOADPATH) $(TESTFLAGS) -l "$$testfile" \
+			--eval '(ert-run-tests-batch-and-exit)' || failed=$$((failed + 1)); \
+	done; \
+	if [ $$failed -eq 0 ]; then \
+		echo "$(GREEN)[✓] All integration tests passed$(NC)"; \
 	else \
-		echo "$(RED)✗ Some integration tests failed.$(NC)"; \
+		echo "$(RED)[✗] $$failed integration test file(s) failed$(NC)"; \
 		exit 1; \
 	fi
+
+# Run tests matching a name pattern (ERT selector)
+test-name: check-deps
+ifndef TEST
+	@echo "$(RED)Error: TEST not specified$(NC)"
+	@echo "Usage: make test-name TEST=test-chime-check-early-return"
+	@echo "       make test-name TEST='test-chime-check-*'"
+	@exit 1
+endif
+	@echo "$(YELLOW)Running tests matching pattern: $(TEST)...$(NC)"
+	@$(EMACS) $(EMACSFLAGS) $(LOADPATH) $(TESTFLAGS) \
+		--eval "(dolist (f (directory-files \".\" t \"^test-.*\\\\.el$$\")) (load f))" \
+		--eval '(ert-run-tests-batch-and-exit "$(TEST)")'
 
 # Count tests
 count:
@@ -220,11 +230,12 @@ help:
 	@echo "Chime Test Suite Makefile"
 	@echo ""
 	@echo "Usage:"
-	@echo "  make test                      - Run all tests (339 tests)"
-	@echo "  make test-file FILE=overdue    - Run tests in one file (fuzzy match)"
-	@echo "  make test-one TEST=pilot       - Run one specific test (fuzzy match)"
+	@echo "  make test                      - Run all tests (unit + integration)"
 	@echo "  make test-unit                 - Run unit tests only"
 	@echo "  make test-integration          - Run integration tests only"
+	@echo "  make test-file FILE=overdue    - Run tests in one file (fuzzy match)"
+	@echo "  make test-one TEST=pilot       - Run one specific test (fuzzy match)"
+	@echo "  make test-name TEST=pattern    - Run tests matching ERT name pattern"
 	@echo "  make validate                  - Validate Emacs Lisp syntax (parens balance)"
 	@echo "  make lint                      - Comprehensive linting with elisp-lint"
 	@echo "  make count                     - Count tests per file"
@@ -237,7 +248,7 @@ help:
 	@echo "  make test                                    # Run everything"
 	@echo "  make test-file FILE=overdue                  # Run test-chime-overdue-todos.el"
 	@echo "  make test-one TEST=pilot                     # Run the pilot test"
-	@echo "  make test-one TEST=test-overdue-has-passed   # Run specific test"
+	@echo "  make test-name TEST='test-chime-check-*'     # Run tests matching pattern"
 	@echo ""
 	@echo "Environment variables:"
 	@echo "  EMACS      - Emacs executable (default: emacs)"
