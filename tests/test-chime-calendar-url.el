@@ -2,16 +2,7 @@
 
 ;;; Code:
 
-;; Initialize package system for batch mode
-(when noninteractive
-  (package-initialize))
-
-(require 'ert)
-(require 'dash)
-(require 'alert)
-
-;; Load chime from parent directory
-(load (expand-file-name "../chime.el") nil t)
+(require 'test-bootstrap (expand-file-name "test-bootstrap.el"))
 
 ;;; Tests for chime--open-calendar-url
 

@@ -26,20 +26,7 @@
 
 ;;; Code:
 
-;; Initialize package system for batch mode
-(when noninteractive
-  (package-initialize))
-
-(require 'ert)
-
-;; Load dependencies required by chime
-(require 'dash)
-(require 'alert)
-(require 'async)
-(require 'org-agenda)
-
-;; Load chime from parent directory
-(load (expand-file-name "../chime.el") nil t)
+(require 'test-bootstrap (expand-file-name "test-bootstrap.el"))
 
 ;; Load test utilities
 (require 'testutil-general (expand-file-name "testutil-general.el"))

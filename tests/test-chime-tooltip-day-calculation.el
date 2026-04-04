@@ -12,11 +12,7 @@
 
 ;;; Code:
 
-(require 'ert)
-(require 'package)
-(setq package-user-dir (expand-file-name "~/.emacs.d/elpa"))
-(package-initialize)
-(load (expand-file-name "../chime.el") nil t)
+(require 'test-bootstrap (expand-file-name "test-bootstrap.el"))
 (require 'testutil-time (expand-file-name "testutil-time.el"))
 (require 'testutil-general (expand-file-name "testutil-general.el"))
 

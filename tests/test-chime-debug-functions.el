@@ -25,21 +25,8 @@
 
 ;;; Code:
 
-;; Initialize package system for batch mode
-(when noninteractive
-  (package-initialize))
-
-(require 'ert)
-
-;; Load dependencies required by chime
-(require 'dash)
-(require 'alert)
-(require 'async)
-(require 'org-agenda)
-
-;; Enable debug mode and load chime
 (setq chime-debug t)
-(load (expand-file-name "../chime.el") nil t)
+(require 'test-bootstrap (expand-file-name "test-bootstrap.el"))
 (require 'chime-debug (expand-file-name "../chime-debug.el"))
 
 ;; Load test utilities

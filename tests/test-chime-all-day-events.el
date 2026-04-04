@@ -8,13 +8,7 @@
 
 ;;; Code:
 
-(when noninteractive
-  (package-initialize))
-
-(require 'ert)
-(require 'dash)
-(require 'org-agenda)
-(load (expand-file-name "../chime.el") nil t)
+(require 'test-bootstrap (expand-file-name "test-bootstrap.el"))
 (require 'testutil-general (expand-file-name "testutil-general.el"))
 (require 'testutil-time (expand-file-name "testutil-time.el"))
 

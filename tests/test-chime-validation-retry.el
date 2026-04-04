@@ -19,15 +19,7 @@
 
 ;;; Code:
 
-(require 'ert)
-
-;; Initialize package system to make installed packages available in batch mode
-(require 'package)
-(setq package-user-dir (expand-file-name "~/.emacs.d/elpa"))
-(package-initialize)
-
-;; Load chime from parent directory (which will load its dependencies)
-(load (expand-file-name "../chime.el") nil t)
+(require 'test-bootstrap (expand-file-name "test-bootstrap.el"))
 
 ;;; Setup and Teardown
 

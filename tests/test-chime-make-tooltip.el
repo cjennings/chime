@@ -25,20 +25,7 @@
 
 ;;; Code:
 
-;; Initialize package system for batch mode
-(when noninteractive
-  (package-initialize))
-
-(require 'ert)
-
-;; Load dependencies required by chime
-(require 'dash)
-(require 'alert)
-(require 'async)
-(require 'org-agenda)
-
-;; Load chime from parent directory
-(load (expand-file-name "../chime.el") nil t)
+(require 'test-bootstrap (expand-file-name "test-bootstrap.el"))
 
 ;; Load test utilities
 (require 'testutil-general (expand-file-name "testutil-general.el"))
@@ -65,7 +52,7 @@
 ;;; Each item is (EVENT TIME-INFO MINUTES-UNTIL) where
 ;;; TIME-INFO is (TIMESTAMP-STR . TIME-OBJECT)
 
-(defun test-make-upcoming-item (title time minutes-until)
+(defun test-tooltip--make-upcoming-item (title time minutes-until)
   "Create an upcoming-events list item for TITLE at TIME, MINUTES-UNTIL from now."
   (let ((ts (test-timestamp-string time)))
     (list `((title . ,title)
@@ -84,7 +71,7 @@
   (unwind-protect
       (let* ((now (test-time-now))
              (event-time (time-add now (seconds-to-time 1800))) ;; 30 min
-             (upcoming (list (test-make-upcoming-item "Team Meeting" event-time 30))))
+             (upcoming (list (test-tooltip--make-upcoming-item "Team Meeting" event-time 30))))
         (with-test-time now
           (let ((result (chime--make-tooltip upcoming)))
             (should (stringp result))
@@ -102,9 +89,9 @@
   (unwind-protect
       (let* ((now (test-time-now))
              (upcoming (list
-                        (test-make-upcoming-item "Event 1" (time-add now (seconds-to-time 600)) 10)
-                        (test-make-upcoming-item "Event 2" (time-add now (seconds-to-time 1200)) 20)
-                        (test-make-upcoming-item "Event 3" (time-add now (seconds-to-time 1800)) 30)))
+                        (test-tooltip--make-upcoming-item "Event 1" (time-add now (seconds-to-time 600)) 10)
+                        (test-tooltip--make-upcoming-item "Event 2" (time-add now (seconds-to-time 1200)) 20)
+                        (test-tooltip--make-upcoming-item "Event 3" (time-add now (seconds-to-time 1800)) 30)))
              (chime-modeline-tooltip-max-events 2))
         (with-test-time now
           (let ((result (chime--make-tooltip upcoming)))
@@ -123,10 +110,10 @@
   (unwind-protect
       (let* ((now (test-time-now))
              (upcoming (list
-                        (test-make-upcoming-item "Event 1" (time-add now (seconds-to-time 600)) 10)
-                        (test-make-upcoming-item "Event 2" (time-add now (seconds-to-time 1200)) 20)
-                        (test-make-upcoming-item "Event 3" (time-add now (seconds-to-time 1800)) 30)
-                        (test-make-upcoming-item "Event 4" (time-add now (seconds-to-time 2400)) 40)))
+                        (test-tooltip--make-upcoming-item "Event 1" (time-add now (seconds-to-time 600)) 10)
+                        (test-tooltip--make-upcoming-item "Event 2" (time-add now (seconds-to-time 1200)) 20)
+                        (test-tooltip--make-upcoming-item "Event 3" (time-add now (seconds-to-time 1800)) 30)
+                        (test-tooltip--make-upcoming-item "Event 4" (time-add now (seconds-to-time 2400)) 40)))
              (chime-modeline-tooltip-max-events 2))
         (with-test-time now
           (let ((result (chime--make-tooltip upcoming)))
@@ -140,9 +127,9 @@
   (unwind-protect
       (let* ((now (test-time-now))
              (upcoming (list
-                        (test-make-upcoming-item "Event 1" (time-add now (seconds-to-time 600)) 10)
-                        (test-make-upcoming-item "Event 2" (time-add now (seconds-to-time 1200)) 20)
-                        (test-make-upcoming-item "Event 3" (time-add now (seconds-to-time 1800)) 30)))
+                        (test-tooltip--make-upcoming-item "Event 1" (time-add now (seconds-to-time 600)) 10)
+                        (test-tooltip--make-upcoming-item "Event 2" (time-add now (seconds-to-time 1200)) 20)
+                        (test-tooltip--make-upcoming-item "Event 3" (time-add now (seconds-to-time 1800)) 30)))
              (chime-modeline-tooltip-max-events nil))
         (with-test-time now
           (let ((result (chime--make-tooltip upcoming)))
@@ -169,8 +156,8 @@
   (unwind-protect
       (let* ((now (test-time-now))
              (upcoming (list
-                        (test-make-upcoming-item "Event 1" (time-add now (seconds-to-time 600)) 10)
-                        (test-make-upcoming-item "Event 2" (time-add now (seconds-to-time 1200)) 20)))
+                        (test-tooltip--make-upcoming-item "Event 1" (time-add now (seconds-to-time 600)) 10)
+                        (test-tooltip--make-upcoming-item "Event 2" (time-add now (seconds-to-time 1200)) 20)))
              (chime-modeline-tooltip-max-events 2))
         (with-test-time now
           (let ((result (chime--make-tooltip upcoming)))
