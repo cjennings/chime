@@ -65,5 +65,50 @@ and set it to nil."
     ;; Timer should be nil after disable
     (should (null chime--timer))))
 
+(ert-deftest test-integration-chime-mode-enable-sets-modeline-string-immediately ()
+  "Enabling chime-mode should set chime-modeline-string to a non-nil value
+immediately, before the first async check completes."
+  (let ((chime-enable-modeline t)
+        (chime-modeline-lookahead-minutes 120)
+        (chime-modeline-no-events-text " ⏰"))
+    (unwind-protect
+        (progn
+          (chime-mode 1)
+          ;; Should be non-nil right away, not after startup delay
+          (should chime-modeline-string)
+          (should (stringp chime-modeline-string)))
+      (chime-mode -1))))
+
+(ert-deftest test-integration-chime-mode-enable-immediate-string-has-tooltip ()
+  "The immediate modeline string should have a help-echo tooltip."
+  (let ((chime-enable-modeline t)
+        (chime-modeline-lookahead-minutes 120)
+        (chime-modeline-no-events-text " ⏰"))
+    (unwind-protect
+        (progn
+          (chime-mode 1)
+          (should (get-text-property 0 'help-echo chime-modeline-string)))
+      (chime-mode -1))))
+
+(ert-deftest test-integration-chime-mode-validation-failure-keeps-icon-visible ()
+  "When validation fails, modeline should still show the icon with error info
+in the tooltip, not go blank."
+  (let ((chime-enable-modeline t)
+        (chime-modeline-lookahead-minutes 120)
+        (chime-modeline-no-events-text " ⏰")
+        (org-agenda-files nil)
+        (chime--validation-done nil)
+        (chime--validation-retry-count 0)
+        (chime-validation-max-retries 0))
+    (unwind-protect
+        (progn
+          (chime-mode 1)
+          ;; Force a check that will fail validation
+          (chime-check)
+          ;; Icon should still be visible, not nil
+          (should chime-modeline-string)
+          (should (stringp chime-modeline-string)))
+      (chime-mode -1))))
+
 (provide 'test-integration-chime-mode)
 ;;; test-integration-chime-mode.el ends here

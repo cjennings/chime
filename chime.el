@@ -1763,7 +1763,8 @@ Does nothing if a check is already in progress."
                              (chime--debug-log-async-error (cdr events)))
                            (chime--log-silently "Chime: Async error: %s"
                                                (error-message-string (cdr events)))
-                           (chime--maybe-warn-persistent-failures))
+                           (chime--maybe-warn-persistent-failures)
+                           (chime--set-modeline-error-state "Event check failed — check *Messages* buffer"))
                        ;; Success - process events normally
                        (setq chime--consecutive-async-failures 0)
                        (when (featurep 'chime-debug)
@@ -1776,7 +1777,8 @@ Does nothing if a check is already in progress."
                     (chime--debug-log-async-error err))
                   (chime--log-silently "Chime: Error processing events: %s"
                                       (error-message-string err))
-                  (chime--maybe-warn-persistent-failures)))))))))
+                  (chime--maybe-warn-persistent-failures)
+                  (chime--set-modeline-error-state "Event check failed — check *Messages* buffer")))))))))
 
 (defun chime--log-silently (format-string &rest args)
   "Append formatted message to *Messages* buffer without echoing.
@@ -1799,17 +1801,25 @@ Returns nil if validation failed and check should be skipped."
           (progn
             (setq chime--validation-retry-count (1+ chime--validation-retry-count))
             (if (> chime--validation-retry-count chime-validation-max-retries)
-                (let ((errors (cl-remove-if-not (lambda (i) (eq (car i) :error)) issues)))
-                  (chime--log-silently "Chime: Configuration validation failed with %d error(s) after %d retries:"
-                                       (length errors)
-                                       chime--validation-retry-count)
-                  (dolist (err errors)
-                    (chime--log-silently "")
-                    (chime--log-silently "ERROR: %s" (cadr err)))
-                  (message "Chime: Configuration errors detected (see *Messages* buffer for details)"))
+                (progn
+                  (let ((errors (cl-remove-if-not (lambda (i) (eq (car i) :error)) issues)))
+                    (chime--log-silently "Chime: Configuration validation failed with %d error(s) after %d retries:"
+                                         (length errors)
+                                         chime--validation-retry-count)
+                    (dolist (err errors)
+                      (chime--log-silently "")
+                      (chime--log-silently "ERROR: %s" (cadr err))))
+                  (message "Chime: Configuration errors detected (see *Messages* buffer for details)")
+                  ;; Update modeline tooltip to show error state
+                  (chime--set-modeline-error-state "Configuration error — check *Messages* buffer"))
               (message "Chime: Waiting for org-agenda-files to load... (attempt %d/%d)"
                        chime--validation-retry-count
-                       chime-validation-max-retries))
+                       chime-validation-max-retries)
+              ;; Update modeline tooltip to show waiting state
+              (chime--set-modeline-error-state
+               (format "Waiting for org-agenda-files... (attempt %d/%d)"
+                       chime--validation-retry-count
+                       chime-validation-max-retries)))
             nil)
         (setq chime--validation-done t)
         (setq chime--validation-retry-count 0)
@@ -1848,6 +1858,30 @@ Does nothing if a check is already in progress in the background."
    (lambda (events)
      (chime--update-modeline events))))
 
+(defun chime--set-modeline-error-state (error-message)
+  "Update modeline icon tooltip to show ERROR-MESSAGE.
+Keeps the icon visible so the user knows chime is running but has a problem."
+  (when chime-modeline-no-events-text
+    (let ((map (make-sparse-keymap)))
+      (define-key map [mode-line mouse-1] #'chime--open-calendar-url)
+      (setq chime-modeline-string
+            (propertize chime-modeline-no-events-text
+                        'help-echo (format "Chime: %s" error-message)
+                        'mouse-face 'mode-line-highlight
+                        'local-map map))
+      (force-mode-line-update t))))
+
+(defun chime--make-initial-modeline-string ()
+  "Create the initial modeline string shown before the first check completes.
+Uses `chime-modeline-no-events-text' with a loading tooltip."
+  (when chime-modeline-no-events-text
+    (let ((map (make-sparse-keymap)))
+      (define-key map [mode-line mouse-1] #'chime--open-calendar-url)
+      (propertize chime-modeline-no-events-text
+                  'help-echo "Chime: waiting for first event check..."
+                  'mouse-face 'mode-line-highlight
+                  'local-map map))))
+
 ;;;###autoload
 (define-minor-mode chime-mode
   "Toggle org notifications globally.
@@ -1861,6 +1895,8 @@ if needed."
         ;; Add modeline string to global-mode-string
         (when (and chime-enable-modeline
                    (> chime-modeline-lookahead-minutes 0))
+          ;; Set icon immediately so the user sees chime is active
+          (setq chime-modeline-string (chime--make-initial-modeline-string))
           (if global-mode-string
               (add-to-list 'global-mode-string 'chime-modeline-string 'append)
             (setq global-mode-string '("" chime-modeline-string)))))
