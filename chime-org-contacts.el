@@ -86,60 +86,29 @@ New contacts will be filed under this heading in `chime-org-contacts-file'."
 
 ;;; Implementation
 
-(defun chime-org-contacts--parse-birthday (birthday-string)
-  "Parse BIRTHDAY-STRING into (YEAR MONTH DAY) list.
-YEAR may be current year if not present in the string.
-Returns nil if parsing fails."
-  (cond
-   ;; Format: YYYY-MM-DD
-   ((string-match "^\\([0-9]\\{4\\}\\)-\\([0-9]\\{2\\}\\)-\\([0-9]\\{2\\}\\)$" birthday-string)
-    (list (string-to-number (match-string 1 birthday-string))
-          (string-to-number (match-string 2 birthday-string))
-          (string-to-number (match-string 3 birthday-string))))
-   ;; Format: MM-DD (use current year)
-   ((string-match "^\\([0-9]\\{2\\}\\)-\\([0-9]\\{2\\}\\)$" birthday-string)
-    (list (nth 5 (decode-time))
-          (string-to-number (match-string 1 birthday-string))
-          (string-to-number (match-string 2 birthday-string))))
-   (t nil)))
-
-(defun chime-org-contacts--format-timestamp (year month day)
-  "Format YEAR MONTH DAY as yearly repeating org timestamp."
-  (let* ((time (encode-time 0 0 0 day month year))
-         (dow (format-time-string "%a" time)))
-    (format "<%04d-%02d-%02d %s +1y>" year month day dow)))
-
-(defun chime-org-contacts--insert-timestamp-after-drawer (timestamp)
-  "Insert TIMESTAMP after properties drawer if not already present."
-  (let ((heading-end (save-excursion (outline-next-heading) (point))))
-    (when (re-search-forward "^[ \t]*:END:[ \t]*$" heading-end t)
-      (let ((end-pos (point)))
-        ;; Only insert if no yearly timestamp already exists
-        (unless (save-excursion
-                  (goto-char end-pos)
-                  (re-search-forward "<[0-9]\\{4\\}-[0-9]\\{2\\}-[0-9]\\{2\\}[^>]*\\+1y>" heading-end t))
-          (goto-char end-pos)
-          (end-of-line)
-          (insert "\n" timestamp))))))
+;; Birthday parsing, formatting, and insertion are provided by
+;; convert-org-contacts-birthdays.el to avoid duplication.
+(require 'convert-org-contacts-birthdays
+         (expand-file-name "convert-org-contacts-birthdays.el"
+                           (file-name-directory (or load-file-name buffer-file-name))))
 
 (defun chime-org-contacts--finalize-birthday-timestamp ()
   "Add yearly repeating timestamp after properties drawer if BIRTHDAY is set.
 
 This function is called during org-capture finalization to automatically
 insert a plain timestamp for birthdays, enabling them to appear in org-agenda
-without requiring org-contacts to be loaded in the async subprocess."
+without requiring org-contacts to be loaded in the async subprocess.
+
+Delegates to `chime--insert-birthday-timestamp-after-drawer' for the
+actual parsing, formatting, and insertion."
   (when (string= (plist-get org-capture-plist :key) chime-org-contacts-capture-key)
     (save-excursion
       (goto-char (point-min))
       (let ((birthday (org-entry-get (point) "BIRTHDAY")))
         (when (and birthday (not (string-blank-p birthday)))
-          (let ((parsed (chime-org-contacts--parse-birthday birthday)))
-            (when parsed
-              (let* ((year (nth 0 parsed))
-                     (month (nth 1 parsed))
-                     (day (nth 2 parsed))
-                     (timestamp (chime-org-contacts--format-timestamp year month day)))
-                (chime-org-contacts--insert-timestamp-after-drawer timestamp)))))))))
+          (condition-case nil
+              (chime--insert-birthday-timestamp-after-drawer birthday)
+            (user-error nil)))))))
 
 (defun chime-org-contacts--setup-capture-template ()
   "Add org-capture template for contacts with birthday timestamps.
