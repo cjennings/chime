@@ -57,5 +57,15 @@
           (should (memq 'chime-modeline-string global-mode-string)))
       (chime-mode -1))))
 
+(ert-deftest test-integration-chime-mode-disable-removes-from-global-mode-string ()
+  "Disabling chime-mode should remove chime-modeline-string from global-mode-string
+and set it to nil."
+  (let ((chime-enable-modeline t)
+        (chime-modeline-lookahead-minutes 60))
+    (chime-mode 1)
+    (chime-mode -1)
+    (should-not (memq 'chime-modeline-string global-mode-string))
+    (should (null chime-modeline-string))))
+
 (provide 'test-integration-chime-mode)
 ;;; test-integration-chime-mode.el ends here
