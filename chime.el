@@ -1468,6 +1468,62 @@ identify the source (e.g., event title)."
               (error-message-string err))
      nil)))
 
+(defun chime--extract-gcal-timestamps (heading)
+  "Extract timestamps from :org-gcal: drawer in current entry.
+HEADING is the entry title for error context.
+Returns list of (TIMESTAMP-STR . PARSED-TIME) cons cells."
+  (let ((timestamps nil))
+    (save-excursion
+      (org-back-to-heading t)
+      (when (re-search-forward "^[ \t]*:org-gcal:"
+                               (save-excursion (org-end-of-subtree t) (point))
+                               t)
+        (let ((drawer-start (point))
+              (drawer-end (save-excursion
+                           (if (re-search-forward "^[ \t]*:END:"
+                                                  (save-excursion (org-end-of-subtree t) (point))
+                                                  t)
+                               (match-beginning 0)
+                             (point)))))
+          (goto-char drawer-start)
+          (while (re-search-forward org-ts-regexp drawer-end t)
+            (let ((timestamp-str (match-string 0)))
+              (push (cons timestamp-str
+                         (chime--timestamp-parse timestamp-str heading))
+                    timestamps))))))
+    (-non-nil (nreverse timestamps))))
+
+(defun chime--extract-property-timestamps (marker heading)
+  "Extract SCHEDULED and DEADLINE timestamps from MARKER's properties.
+HEADING is the entry title for error context.
+Returns list of (TIMESTAMP-STR . PARSED-TIME) cons cells."
+  (-non-nil
+   (--map
+    (let ((org-timestamp (org-entry-get marker it)))
+      (and org-timestamp
+           (cons org-timestamp
+                 (chime--timestamp-parse org-timestamp heading))))
+    '("DEADLINE" "SCHEDULED"))))
+
+(defun chime--extract-plain-timestamps (heading)
+  "Extract plain timestamps from current entry body.
+Skips planning lines (SCHEDULED, DEADLINE, CLOSED) to avoid duplicates.
+HEADING is the entry title for error context.
+Returns list of (TIMESTAMP-STR . PARSED-TIME) cons cells."
+  (let ((timestamps nil))
+    (save-excursion
+      (org-end-of-meta-data nil)
+      (let ((start (point))
+            (end (save-excursion (org-end-of-subtree t) (point))))
+        (when (< start end)
+          (goto-char start)
+          (while (re-search-forward org-ts-regexp end t)
+            (let ((timestamp-str (match-string 0)))
+              (push (cons timestamp-str
+                         (chime--timestamp-parse timestamp-str heading))
+                    timestamps))))))
+    (nreverse timestamps)))
+
 (defun chime--extract-time (marker)
   "Extract timestamps from MARKER using source-aware extraction.
 
@@ -1486,60 +1542,9 @@ Timestamps are extracted as cons cells:
     (let ((is-gcal-event (org-entry-get marker "entry-id"))
           (heading (nth 4 (org-heading-components))))
       (if is-gcal-event
-          ;; org-gcal event: extract ONLY from :org-gcal: drawer
-          (let ((timestamps nil))
-            (save-excursion
-              (org-back-to-heading t)
-              ;; Search for :org-gcal: drawer
-              (when (re-search-forward "^[ \t]*:org-gcal:"
-                                      (save-excursion (org-end-of-subtree t) (point))
-                                      t)
-                (let ((drawer-start (point))
-                      (drawer-end (save-excursion
-                                   (if (re-search-forward "^[ \t]*:END:"
-                                                         (save-excursion (org-end-of-subtree t) (point))
-                                                         t)
-                                       (match-beginning 0)
-                                     (point)))))
-                  ;; Extract timestamps within drawer boundaries
-                  (goto-char drawer-start)
-                  (while (re-search-forward org-ts-regexp drawer-end t)
-                    (let ((timestamp-str (match-string 0)))
-                      (push (cons timestamp-str
-                                 (chime--timestamp-parse timestamp-str heading))
-                            timestamps))))))
-            (-non-nil (nreverse timestamps)))
-        ;; Regular org event: prefer SCHEDULED/DEADLINE, fall back to plain timestamps
-        (let ((property-timestamps
-               ;; Extract SCHEDULED and DEADLINE from properties
-               (-non-nil
-                (--map
-                 (let ((org-timestamp (org-entry-get marker it)))
-                   (and org-timestamp
-                        (cons org-timestamp
-                              (chime--timestamp-parse org-timestamp heading))))
-                 '("DEADLINE" "SCHEDULED"))))
-              (plain-timestamps
-               ;; Extract plain timestamps from entry body
-               ;; Skip planning lines (SCHEDULED, DEADLINE, CLOSED) to avoid duplicates
-               (let ((timestamps nil))
-                 (save-excursion
-                   ;; Skip heading and planning lines, but NOT other drawers (nil arg)
-                   (org-end-of-meta-data nil)
-                   (let ((start (point))
-                         (end (save-excursion (org-end-of-subtree t) (point))))
-                     ;; Only search if there's content after metadata
-                     (when (< start end)
-                       (goto-char start)
-                       ;; Search for timestamps until end of entry
-                       (while (re-search-forward org-ts-regexp end t)
-                         (let ((timestamp-str (match-string 0)))
-                           (push (cons timestamp-str
-                                      (chime--timestamp-parse timestamp-str heading))
-                                 timestamps))))))
-                 (nreverse timestamps))))
-          ;; Combine property and plain timestamps, removing duplicates and nils
-          (-non-nil (append property-timestamps plain-timestamps)))))))
+          (chime--extract-gcal-timestamps heading)
+        (-non-nil (append (chime--extract-property-timestamps marker heading)
+                          (chime--extract-plain-timestamps heading)))))))
 
 ;;;; Event Info Extraction
 
