@@ -880,45 +880,40 @@ For timed events, checks if the time is today (past or future)."
            (time-equal-p event-date today-start)))))
    (cdr (assoc 'times event))))
 
+(defun chime--days-until-event (all-times)
+  "Calculate minimum days until the soonest all-day timestamp in ALL-TIMES.
+ALL-TIMES is a list of (TIMESTAMP-STR . TIME-OBJECT) cons cells.
+Returns integer days (ceiling), or nil if no all-day timestamps found."
+  (let ((now (current-time)))
+    (-min
+     (--map
+      (when-let* ((timestamp-str (car it))
+                  (is-all-day (not (chime--has-timestamp timestamp-str)))
+                  (parsed (org-parse-time-string timestamp-str))
+                  (year (nth 5 parsed))
+                  (month (nth 4 parsed))
+                  (day (nth 3 parsed)))
+        (let* ((event-time (encode-time 0 0 0 day month year))
+               (seconds-until (time-subtract event-time now)))
+          (ceiling (/ (float-time seconds-until) 86400.0))))
+      all-times))))
+
 (defun chime--day-wide-notification-text (event)
   "Generate notification text for day-wide EVENT.
 Handles both same-day events and advance notices."
   (let* ((title (cdr (assoc 'title event)))
-         (all-times (cdr (assoc 'times event)))
          (is-today (chime-event-has-any-passed-time event))
          (is-advance-notice (and chime-day-wide-advance-notice
                                 (chime-event-within-advance-notice-window event))))
     (cond
-     ;; Event is today
      (is-today
       (format "%s is due or scheduled today" title))
-     ;; Event is within advance notice window
      (is-advance-notice
-      ;; Calculate days until event
-      (let* ((now (current-time))
-             (days-until
-              (-min
-               (--map
-                (when-let* ((timestamp-str (car it))
-                           (is-all-day (not (chime--has-timestamp timestamp-str)))
-                           (parsed (org-parse-time-string timestamp-str))
-        
-                           (year (nth 5 parsed))
-                           (month (nth 4 parsed))
-                           (day (nth 3 parsed)))
-                  (let* ((event-time (encode-time 0 0 0 day month year))
-                         (seconds-until (time-subtract event-time now))
-                         (days (/ (float-time seconds-until) 86400.0)))
-                    (ceiling days)))
-                all-times))))
+      (let ((days-until (chime--days-until-event (cdr (assoc 'times event)))))
         (cond
-         ((= days-until 1)
-          (format "%s is tomorrow" title))
-         ((= days-until 2)
-          (format "%s is in 2 days" title))
-         (t
-          (format "%s is in %d days" title days-until)))))
-     ;; Fallback (shouldn't happen)
+         ((= days-until 1) (format "%s is tomorrow" title))
+         ((= days-until 2) (format "%s is in 2 days" title))
+         (t (format "%s is in %d days" title days-until)))))
      (t
       (format "%s is due or scheduled today" title)))))
 
