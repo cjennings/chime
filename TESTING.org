@@ -4,6 +4,10 @@
 
 Quick reference for running and writing tests in the Chime project.
 
+#+begin_quote
+*Contents:* [[Quick start]] | [[Running tests]] | [[Writing tests]] | [[Test infrastructure]] | [[Key patterns]] | [[Important notes]] | [[Dependencies]] | [[Test inventory]]
+#+end_quote
+
 * Quick start
 
 #+begin_src sh
