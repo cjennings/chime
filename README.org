@@ -1,6 +1,6 @@
 * CHIME Heralds Imminent Modeline Events
 
-[[#features][Features]] | [[#installation][Installation]] | [[#quick-start][Quick Start]] | [[#configuration][Configuration]] | [[#usage][Usage]] | [[#integrations][Integrations]] | [[#troubleshooting][Troubleshooting]] | [[#testing][Development & Testing]] | [[#history][History]]
+[[#features][Features]] | [[#installation][Installation]] | [[#quick-start][Quick Start]] | [[#configuration][Configuration]] | [[#integrations][Integrations]] | [[#troubleshooting][Troubleshooting]] | [[#testing][Development & Testing]] | [[#history][History]]
 
 [[https://www.gnu.org/software/emacs/][file:assets/made-for-emacs-badge.svg]]
 
@@ -108,30 +108,57 @@ If you're using straight, you probably don't need me to tell you what to do, but
 
 *** Manual installation
 
+#+BEGIN_SRC bash
+git clone https://github.com/cjennings/chime.git ~/path/to/chime
+#+END_SRC
+
+Then add the following to your init file:
+
 #+BEGIN_SRC elisp
 (add-to-list 'load-path "~/path/to/chime")
 (require 'chime)
+(chime-mode 1)
 #+END_SRC
+
+Restart Emacs, or evaluate those three lines with =M-x eval-buffer= to start chime immediately.
+
 
 ** Quick Start
 :PROPERTIES:
 :CUSTOM_ID: quick-start
 :END:
 
-Minimal configuration — clone the repo and point your load-path at it:
+Once you've installed chime using one of the methods above, the only thing you actually need is:
 
 #+BEGIN_SRC elisp
-  (add-to-list 'load-path "/path/to/chime/")
-  (require 'chime)
-
-  ;; Alert intervals: notify 5 minutes before (medium) and at event time (high)
-  (setq chime-alert-intervals '((5 . medium) (0 . high)))
-
-  ;; Enable notifications
-  (chime-mode 1)
+(chime-mode 1)
 #+END_SRC
 
-** Configuration
+That's it. The defaults are sensible: chime checks your =org-agenda-files= every 60 seconds, notifies you 10 minutes before events (medium urgency) and again at event time (high urgency), plays the bundled chime sound, and shows your next event in the modeline with a ⏰ icon. Make sure your calendar org files are in =org-agenda-files= — no agenda files, no notifications.
+
+Once chime-mode is on, a ⏰ icon appears in your modeline followed by your next upcoming event. Here's how to interact with it:
+
+- *Hover* over the modeline text to see a tooltip listing all upcoming events, grouped by day
+- *Left-click* opens your calendar in a browser (if you've set ~chime-calendar-url~)
+- *Right-click* jumps to the next event's entry in its org file
+
+When an event is approaching, you'll get a desktop notification and an audible chime. Everything — alert timing, sounds, modeline format, filtering — is configurable in the [[#configuration][Configuration]] section below.
+
+*** Manual Refresh Commands
+
+If you've just added or changed events and don't want to wait for the next polling cycle:
+
+#+BEGIN_SRC elisp
+M-x chime-check
+#+END_SRC
+
+To update the modeline display *without* sending notifications (useful after syncing your calendar with org-gcal):
+
+#+BEGIN_SRC elisp
+M-x chime-refresh-modeline
+#+END_SRC
+
+** Configuration Options
 :PROPERTIES:
 :CUSTOM_ID: configuration
 :END:
@@ -537,10 +564,10 @@ For maximum modeline space savings:
 ;; Never notify for these keywords
 (setq chime-keyword-blacklist '("DONE" "CANCELLED"))
 
-;; Only notify for specific tags
-(setq chime-tags-whitelist '("@important"))
+;; Only notify for specific org tags
+(setq chime-tags-whitelist '("important"))
 
-;; Never notify for these tags
+;; Never notify for these org-tags
 (setq chime-tags-blacklist '("someday"))
 #+END_SRC
 
@@ -556,6 +583,8 @@ Examples:
 Most users configure either whitelists or blacklists, not both. If you use both, ensure they don't overlap to avoid confusion.
 
 **** Custom Predicate Filtering
+
+Keywords and tags cover most filtering needs, but sometimes you want logic they can't express — like silencing work events on weekends, or only getting notified about events in a specific file.
 
 For filtering logic that goes beyond keywords and tags, you can write custom predicate functions. Each predicate receives an org marker (POM) and should return non-nil to match:
 
@@ -862,38 +891,36 @@ For Monday-Friday events, you can either:
 1. Accept weekend notifications (mark as DONE on weekends)
 2. Create 5 separate entries, one for each weekday with =+1w= repeater
 
-** Usage
-:PROPERTIES:
-:CUSTOM_ID: usage
-:END:
-
-*** Manually Trigger a Notification Check
-
-You can manually trigger a notification check:
-
-#+BEGIN_SRC elisp
-M-x chime-check
-#+END_SRC
-
-To update the modeline display *without* sending notifications (useful after syncing your calendar with org-gcal or similar tools):
-
-#+BEGIN_SRC elisp
-M-x chime-refresh-modeline
-#+END_SRC
-
-*** Basic Event with Timestamp
-
-#+BEGIN_SRC org
-,* Argue About Tabs vs Spaces
-<2025-10-25 Sat 14:00>
-#+END_SRC
-
-Will notify at 14:00 (if =chime-alert-intervals= includes =(0 . severity)=).
-
 ** Integrations
 :PROPERTIES:
 :CUSTOM_ID: integrations
 :END:
+
+*** org-gcal
+:PROPERTIES:
+:CUSTOM_ID: integration-with-org-gcal
+:END:
+
+[[https://github.com/kidd/org-gcal.el][org-gcal]] syncs Google Calendar events into org files, which is exactly what chime reads. They work well together with no special configuration — just make sure the org files that org-gcal writes to are in your =org-agenda-files=.
+
+Typical setup:
+
+#+BEGIN_SRC elisp
+(use-package org-gcal
+  :after org
+  :config
+  (setq org-gcal-client-id "your-client-id"
+        org-gcal-client-secret "your-client-secret"
+        org-gcal-fetch-file-alist
+        '(("you@gmail.com" . "~/org/gcal.org"))))
+
+;; Make sure chime can see those events
+(add-to-list 'org-agenda-files "~/org/gcal.org")
+#+END_SRC
+
+After org-gcal syncs, run =M-x chime-refresh-modeline= to pick up new events immediately (otherwise chime will find them on the next polling cycle).
+
+One thing to watch: org-gcal uses plain timestamps (=<2026-04-05 Sun 14:00>=), not SCHEDULED/DEADLINE. Chime handles both, so this works out of the box. If you're filtering by TODO keywords, note that org-gcal events won't have them unless you add keywords to your org-gcal templates.
 
 *** org-contacts
 :PROPERTIES:
@@ -935,32 +962,6 @@ After conversion, comment out the diary sexp in your schedule file:
 This adds an org-capture template (=C-c c C=) that prompts for contact details and automatically inserts a yearly repeating timestamp if a birthday is provided.
 
 Set =chime-org-contacts-file= to =nil= to disable (the default).
-
-*** org-gcal
-:PROPERTIES:
-:CUSTOM_ID: integration-with-org-gcal
-:END:
-
-[[https://github.com/kidd/org-gcal.el][org-gcal]] syncs Google Calendar events into org files, which is exactly what chime reads. They work well together with no special configuration — just make sure the org files that org-gcal writes to are in your =org-agenda-files=.
-
-Typical setup:
-
-#+BEGIN_SRC elisp
-(use-package org-gcal
-  :after org
-  :config
-  (setq org-gcal-client-id "your-client-id"
-        org-gcal-client-secret "your-client-secret"
-        org-gcal-fetch-file-alist
-        '(("you@gmail.com" . "~/org/gcal.org"))))
-
-;; Make sure chime can see those events
-(add-to-list 'org-agenda-files "~/org/gcal.org")
-#+END_SRC
-
-After org-gcal syncs, run =M-x chime-refresh-modeline= to pick up new events immediately (otherwise chime will find them on the next polling cycle).
-
-One thing to watch: org-gcal uses plain timestamps (=<2026-04-05 Sun 14:00>=), not SCHEDULED/DEADLINE. Chime handles both, so this works out of the box. If you're filtering by TODO keywords, note that org-gcal events won't have them unless you add keywords to your org-gcal templates.
 
 ** Troubleshooting
 :PROPERTIES:
