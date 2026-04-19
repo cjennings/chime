@@ -1,3 +1,9 @@
 /todo.org
 /docs/
 /tests/*-output.log
+
+# --- elisp ruleset ---
+/.claude/settings.local.json
+/.claude/.cache/
+*.elc
+*.eln
