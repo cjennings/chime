@@ -586,23 +586,38 @@ Most users configure either whitelists or blacklists, not both. If you use both,
 
 Keywords and tags cover most filtering needs, but sometimes you want logic they can't express — like silencing work events on weekends, or only getting notified about events in a specific file.
 
-For filtering logic that goes beyond keywords and tags, you can write custom predicate functions. Each predicate receives an org marker (POM) and should return non-nil to match:
+For filtering logic that goes beyond keywords and tags, you can write custom predicate functions. Each predicate receives an org marker (POM) and should return non-nil to match. Whitelisted predicates include events that match; blacklisted predicates exclude them.
 
 #+BEGIN_SRC elisp
-;; Only notify for events in specific files
+;; Whitelist: only notify for events in work.org
 (defun my-work-file-predicate (marker)
-  "Only match events in work.org."
-  (string-match-p "work\\.org" (buffer-file-name (marker-buffer marker))))
+  "Match events that live in work.org."
+  (string-match-p "work\\.org"
+                  (or (buffer-file-name (marker-buffer marker)) "")))
 
 (setq chime-predicate-whitelist '(my-work-file-predicate))
 
-;; Exclude events with specific properties
+;; Blacklist: silence work events on weekends
+(defun my-weekend-work-silencer (marker)
+  "Match work.org events on Saturday or Sunday."
+  (and (memq (nth 6 (decode-time)) '(0 6))
+       (string-match-p "work\\.org"
+                       (or (buffer-file-name (marker-buffer marker)) ""))))
+
+;; Blacklist: exclude events with a NO_NOTIFY property
 (defun my-no-notify-predicate (marker)
-  "Exclude events with NO_NOTIFY property set."
+  "Match events with a NO_NOTIFY property set."
   (org-entry-get marker "NO_NOTIFY"))
 
+;; Whitelist: only notify for high-priority items
+(defun my-priority-a-only (marker)
+  "Match events with a [#A] priority cookie."
+  (string= (org-entry-get marker "PRIORITY") "A"))
+
 (setq chime-predicate-blacklist
-      '(chime-done-keywords-predicate my-no-notify-predicate))
+      '(chime-done-keywords-predicate
+        my-weekend-work-silencer
+        my-no-notify-predicate))
 #+END_SRC
 
 The built-in =chime-done-keywords-predicate= is in the blacklist by default, filtering out DONE items.
