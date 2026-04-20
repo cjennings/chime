@@ -1,5 +1,6 @@
 /todo.org
 /.ai/
+/.stignore
 /tests/*-output.log
 
 # --- elisp ruleset ---
