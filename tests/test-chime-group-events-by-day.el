@@ -267,6 +267,77 @@ instead of by calendar day."
           (should (string-match-p "Tomorrow" (car (car result))))))
     (test-chime-group-events-by-day-teardown)))
 
+;;;; Tests for chime--day-label-for-event-time
+
+;; Pure-function tests. NOW and TOMORROW are passed in, so no clock mocking
+;; is needed — we just construct stable calendar times with `encode-time'.
+
+(ert-deftest test-chime-day-label-normal-same-day-returns-today ()
+  "Normal: event on the same calendar day as NOW returns \"Today, ...\"."
+  (let* ((now (encode-time 0 0 12 15 5 2026))            ; 2026-05-15 12:00
+         (tomorrow (time-add now (days-to-time 1)))
+         (event (encode-time 0 0 9 15 5 2026))           ; 2026-05-15 09:00
+         (label (chime--day-label-for-event-time event now tomorrow)))
+    (should (stringp label))
+    (should (string-match-p "\\`Today" label))
+    (should (string-match-p "May 15" label))))
+
+(ert-deftest test-chime-day-label-normal-next-calendar-day-returns-tomorrow ()
+  "Normal: event on the same calendar day as TOMORROW returns \"Tomorrow, ...\"."
+  (let* ((now (encode-time 0 0 12 15 5 2026))            ; 2026-05-15 12:00
+         (tomorrow (time-add now (days-to-time 1)))
+         (event (encode-time 0 0 10 16 5 2026))          ; 2026-05-16 10:00
+         (label (chime--day-label-for-event-time event now tomorrow)))
+    (should (string-match-p "\\`Tomorrow" label))
+    (should (string-match-p "May 16" label))))
+
+(ert-deftest test-chime-day-label-normal-distant-future-returns-weekday ()
+  "Normal: event three days out returns a weekday label (not Today/Tomorrow)."
+  (let* ((now (encode-time 0 0 12 15 5 2026))            ; 2026-05-15 (Fri) 12:00
+         (tomorrow (time-add now (days-to-time 1)))
+         (event (encode-time 0 0 14 18 5 2026))          ; 2026-05-18 (Mon) 14:00
+         (label (chime--day-label-for-event-time event now tomorrow)))
+    (should (stringp label))
+    (should-not (string-match-p "\\`Today" label))
+    (should-not (string-match-p "\\`Tomorrow" label))
+    (should (string-match-p "Monday" label))
+    (should (string-match-p "May 18" label))))
+
+(ert-deftest test-chime-day-label-boundary-event-at-today-midnight ()
+  "Boundary: event at 00:00 on the same calendar day as NOW is Today."
+  (let* ((now (encode-time 0 0 12 15 5 2026))            ; 2026-05-15 12:00
+         (tomorrow (time-add now (days-to-time 1)))
+         (event (encode-time 0 0 0 15 5 2026))           ; 2026-05-15 00:00
+         (label (chime--day-label-for-event-time event now tomorrow)))
+    (should (string-match-p "\\`Today" label))))
+
+(ert-deftest test-chime-day-label-boundary-event-at-tomorrow-midnight ()
+  "Boundary: event at 00:00 on TOMORROW's calendar day is Tomorrow."
+  (let* ((now (encode-time 0 0 12 15 5 2026))            ; 2026-05-15 12:00
+         (tomorrow (time-add now (days-to-time 1)))
+         (event (encode-time 0 0 0 16 5 2026))           ; 2026-05-16 00:00
+         (label (chime--day-label-for-event-time event now tomorrow)))
+    (should (string-match-p "\\`Tomorrow" label))))
+
+(ert-deftest test-chime-day-label-boundary-day-after-tomorrow-is-weekday ()
+  "Boundary: event two calendar days out is NOT Tomorrow; gets a weekday label."
+  (let* ((now (encode-time 0 0 12 15 5 2026))            ; 2026-05-15 12:00
+         (tomorrow (time-add now (days-to-time 1)))
+         (event (encode-time 0 0 12 17 5 2026))          ; 2026-05-17 12:00
+         (label (chime--day-label-for-event-time event now tomorrow)))
+    (should-not (string-match-p "\\`Tomorrow" label))
+    (should (string-match-p "May 17" label))))
+
+(ert-deftest test-chime-day-label-boundary-yesterday-is-weekday ()
+  "Boundary: event on the previous calendar day is neither Today nor Tomorrow."
+  (let* ((now (encode-time 0 0 12 15 5 2026))            ; 2026-05-15 12:00
+         (tomorrow (time-add now (days-to-time 1)))
+         (event (encode-time 0 0 10 14 5 2026))          ; 2026-05-14 10:00
+         (label (chime--day-label-for-event-time event now tomorrow)))
+    (should-not (string-match-p "\\`Today" label))
+    (should-not (string-match-p "\\`Tomorrow" label))
+    (should (string-match-p "May 14" label))))
+
 ;;; Error Cases
 
 (ert-deftest test-chime-group-events-by-day-error-nil-input ()
