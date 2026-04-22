@@ -974,41 +974,42 @@ TITLE is the event title."
                                  days (if (= days 1) "" "s"))))))))
     (format "%s at %s %s" title time-display countdown)))
 
+(defun chime--day-label-for-event-time (event-time now tomorrow)
+  "Return the date-group label for EVENT-TIME.
+NOW is the reference \"now\" time (typically `current-time') and
+TOMORROW is NOW plus 24 hours. When EVENT-TIME falls on the same
+calendar day as NOW, returns \"Today, <Mon DD>\". When it falls on the
+same calendar day as TOMORROW, returns \"Tomorrow, <Mon DD>\".
+Otherwise returns the full weekday and date, e.g. \"Wednesday, Nov 05\"."
+  (let ((event-decoded (decode-time event-time))
+        (now-decoded (decode-time now))
+        (tomorrow-decoded (decode-time tomorrow)))
+    (cond
+     ((and (= (decoded-time-day event-decoded) (decoded-time-day now-decoded))
+           (= (decoded-time-month event-decoded) (decoded-time-month now-decoded))
+           (= (decoded-time-year event-decoded) (decoded-time-year now-decoded)))
+      (format-time-string "Today, %b %d" now))
+     ((and (= (decoded-time-day event-decoded) (decoded-time-day tomorrow-decoded))
+           (= (decoded-time-month event-decoded) (decoded-time-month tomorrow-decoded))
+           (= (decoded-time-year event-decoded) (decoded-time-year tomorrow-decoded)))
+      (format-time-string "Tomorrow, %b %d" tomorrow))
+     (t
+      (format-time-string "%A, %b %d" event-time)))))
+
 (defun chime--group-events-by-day (upcoming-events)
   "Group UPCOMING-EVENTS by day.
 Returns an alist of (DATE-STRING . EVENTS-LIST)."
   (let* ((grouped '())
          (now (current-time))
-         (now-decoded (decode-time now))
-         (now-day (decoded-time-day now-decoded))
-         (now-month (decoded-time-month now-decoded))
-         (now-year (decoded-time-year now-decoded))
-         (tomorrow (time-add now (days-to-time 1)))
-         (tomorrow-decoded (decode-time tomorrow)))
+         (tomorrow (time-add now (days-to-time 1))))
     (dolist (item upcoming-events)
-      (let* ((event-time (cdr (nth 1 item)))
-             (event-decoded (decode-time event-time)))
-        (when event-decoded
-          (let* ((event-day (decoded-time-day event-decoded))
-                 (event-month (decoded-time-month event-decoded))
-                 (event-year (decoded-time-year event-decoded))
-                 (same-day-p (and (= now-day event-day)
-                                 (= now-month event-month)
-                                 (= now-year event-year)))
-                 (tomorrow-p (and (= event-day (decoded-time-day tomorrow-decoded))
-                                 (= event-month (decoded-time-month tomorrow-decoded))
-                                 (= event-year (decoded-time-year tomorrow-decoded))))
-                 (date-string (cond
-                               (same-day-p
-                                (format-time-string "Today, %b %d" now))
-                               (tomorrow-p
-                                (format-time-string "Tomorrow, %b %d" tomorrow))
-                               (t
-                                (format-time-string "%A, %b %d" event-time)))))
-            (let ((day-group (assoc date-string grouped)))
-              (if day-group
-                  (setcdr day-group (append (cdr day-group) (list item)))
-                (push (cons date-string (list item)) grouped)))))))
+      (let ((event-time (cdr (nth 1 item))))
+        (when event-time
+          (let* ((date-string (chime--day-label-for-event-time event-time now tomorrow))
+                 (day-group (assoc date-string grouped)))
+            (if day-group
+                (setcdr day-group (append (cdr day-group) (list item)))
+              (push (cons date-string (list item)) grouped))))))
     (nreverse grouped)))
 
 (defun chime--make-tooltip (upcoming-events)
