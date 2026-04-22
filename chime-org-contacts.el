@@ -88,9 +88,7 @@ New contacts will be filed under this heading in `chime-org-contacts-file'."
 
 ;; Birthday parsing, formatting, and insertion are provided by
 ;; convert-org-contacts-birthdays.el to avoid duplication.
-(require 'convert-org-contacts-birthdays
-         (expand-file-name "convert-org-contacts-birthdays.el"
-                           (file-name-directory (or load-file-name buffer-file-name))))
+(require 'convert-org-contacts-birthdays)
 
 (defun chime-org-contacts--finalize-birthday-timestamp ()
   "Add yearly repeating timestamp after properties drawer if BIRTHDAY is set.
