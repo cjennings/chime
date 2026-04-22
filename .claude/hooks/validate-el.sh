@@ -88,7 +88,10 @@ count="${#tests[@]}"
 if [ "$count" -ge 1 ] && [ "$count" -le "$MAX_AUTO_TEST_FILES" ]; then
   load_args=()
   for t in "${tests[@]}"; do load_args+=("-l" "$t"); done
-  if ! output="$(emacs --batch --no-site-file --no-site-lisp \
+  # Run from tests/ so each file's `(require 'test-bootstrap (expand-file-name
+  # "test-bootstrap.el"))` resolves against the directory the bootstrap lives in,
+  # not the project root.
+  if ! output="$(cd "$PROJECT_ROOT/tests" && emacs --batch --no-site-file --no-site-lisp \
                    -L "$PROJECT_ROOT" \
                    -L "$PROJECT_ROOT/modules" \
                    -L "$PROJECT_ROOT/tests" \
