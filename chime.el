@@ -1744,6 +1744,27 @@ reaches `chime-max-consecutive-failures'.  Only warns once at the threshold."
              chime--consecutive-async-failures)
      :warning)))
 
+(defun chime--record-async-failure (err prefix)
+  "Record an async failure ERR. PREFIX names the failure category in the log.
+Increments the consecutive-failure counter, sends a debug log when the
+debug module is loaded, writes a silent log line, may emit the
+persistent-failure warning, and switches the modeline to its error state."
+  (cl-incf chime--consecutive-async-failures)
+  (when (featurep 'chime-debug)
+    (chime--debug-log-async-error err))
+  (chime--log-silently "Chime: %s: %s" prefix (error-message-string err))
+  (chime--maybe-warn-persistent-failures)
+  (chime--set-modeline-error-state "Event check failed — check *Messages* buffer"))
+
+(defun chime--handle-async-success (callback events)
+  "Process a successful async fetch. Invoke CALLBACK with EVENTS.
+Resets the consecutive-failure counter and sends a debug-completion log
+when the debug module is loaded."
+  (setq chime--consecutive-async-failures 0)
+  (when (featurep 'chime-debug)
+    (chime--debug-log-async-complete events))
+  (funcall callback events))
+
 (defun chime--fetch-and-process (callback)
   "Asynchronously fetch events from agenda and invoke CALLBACK with them.
 Manages async process state and last-check-time internally.
@@ -1759,35 +1780,13 @@ Does nothing if a check is already in progress."
              (lambda (events)
                (setq chime--process nil)
                (setq chime--last-check-time (current-time))
-               ;; Handle errors from async process
                (condition-case err
-                   (progn
-                     ;; Check if events is an error signal from async process
-                     (if (and (listp events)
-                              (eq (car events) 'async-signal))
-                         (progn
-                           ;; Async process returned an error
-                           (cl-incf chime--consecutive-async-failures)
-                           (when (featurep 'chime-debug)
-                             (chime--debug-log-async-error (cdr events)))
-                           (chime--log-silently "Chime: Async error: %s"
-                                               (error-message-string (cdr events)))
-                           (chime--maybe-warn-persistent-failures)
-                           (chime--set-modeline-error-state "Event check failed — check *Messages* buffer"))
-                       ;; Success - process events normally
-                       (setq chime--consecutive-async-failures 0)
-                       (when (featurep 'chime-debug)
-                         (chime--debug-log-async-complete events))
-                       (funcall callback events)))
+                   (if (and (listp events)
+                            (eq (car events) 'async-signal))
+                       (chime--record-async-failure (cdr events) "Async error")
+                     (chime--handle-async-success callback events))
                  (error
-                  ;; Error occurred in callback processing
-                  (cl-incf chime--consecutive-async-failures)
-                  (when (featurep 'chime-debug)
-                    (chime--debug-log-async-error err))
-                  (chime--log-silently "Chime: Error processing events: %s"
-                                      (error-message-string err))
-                  (chime--maybe-warn-persistent-failures)
-                  (chime--set-modeline-error-state "Event check failed — check *Messages* buffer")))))))))
+                  (chime--record-async-failure err "Error processing events")))))))))
 
 (defun chime--log-silently (format-string &rest args)
   "Append formatted message to *Messages* buffer without echoing.
