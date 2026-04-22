@@ -5,6 +5,7 @@
 ;; - chime--find-soonest-time-in-window
 ;; - chime--build-upcoming-events-list
 ;; - chime--find-soonest-modeline-event
+;; - chime--render-modeline-string
 
 ;;; Code:
 
@@ -157,6 +158,57 @@
            (result (chime--find-soonest-modeline-event events now 60)))
       (should result)
       (should (string= (cdr (assoc 'title (nth 0 result))) "Timed Event")))))
+
+;;;; Tests for chime--render-modeline-string
+
+(ert-deftest test-chime-render-modeline-string-normal-soonest-returns-formatted-string ()
+  "Normal: SOONEST branch formats event-text via `chime-modeline-format'."
+  (let ((chime-modeline-format "[%s]")
+        (chime--upcoming-events nil)
+        (soonest '(event-placeholder "ts" 10 "Standup in 10 min")))
+    (let ((result (chime--render-modeline-string soonest nil 60)))
+      (should (stringp result))
+      (should (string= result "[Standup in 10 min]")))))
+
+(ert-deftest test-chime-render-modeline-string-normal-no-soonest-with-upcoming-binds-both-clicks ()
+  "Normal: no SOONEST + UPCOMING propertizes no-events-text with mouse-1 and mouse-3."
+  (let* ((chime-modeline-no-events-text "*")
+         (event-time (current-time))
+         (upcoming (list (list '((title . "Test"))
+                               (cons "<2026-01-01 Thu 12:00>" event-time)
+                               5)))
+         (result (chime--render-modeline-string nil upcoming 60))
+         (map (get-text-property 0 'local-map result)))
+    (should (stringp result))
+    (should (string= (substring-no-properties result) "*"))
+    (should (eq (lookup-key map [mode-line mouse-1]) #'chime--open-calendar-url))
+    (should (eq (lookup-key map [mode-line mouse-3]) #'chime--jump-to-first-event))
+    (should (stringp (get-text-property 0 'help-echo result)))))
+
+(ert-deftest test-chime-render-modeline-string-normal-no-soonest-no-upcoming-only-mouse-1 ()
+  "Normal: no SOONEST + no UPCOMING binds only mouse-1, uses no-events-tooltip."
+  (let* ((chime-modeline-no-events-text "*")
+         (result (chime--render-modeline-string nil nil 60))
+         (map (get-text-property 0 'local-map result))
+         (tooltip (get-text-property 0 'help-echo result)))
+    (should (stringp result))
+    (should (eq (lookup-key map [mode-line mouse-1]) #'chime--open-calendar-url))
+    (should-not (lookup-key map [mode-line mouse-3]))
+    (should (string-match-p "No calendar events" tooltip))))
+
+(ert-deftest test-chime-render-modeline-string-boundary-no-soonest-no-events-text-nil-returns-nil ()
+  "Boundary: returns nil when no SOONEST and `chime-modeline-no-events-text' is nil."
+  (let ((chime-modeline-no-events-text nil))
+    (should (null (chime--render-modeline-string nil nil 60)))
+    (should (null (chime--render-modeline-string nil '(some-upcoming) 60)))))
+
+(ert-deftest test-chime-render-modeline-string-boundary-soonest-renders-when-no-events-text-nil ()
+  "Boundary: SOONEST branch renders regardless of `chime-modeline-no-events-text'."
+  (let ((chime-modeline-format "%s")
+        (chime-modeline-no-events-text nil)
+        (chime--upcoming-events nil)
+        (soonest '(event-placeholder "ts" 10 "Event!")))
+    (should (string= "Event!" (chime--render-modeline-string soonest nil 60)))))
 
 (provide 'test-chime-update-modeline-helpers)
 ;;; test-chime-update-modeline-helpers.el ends here
