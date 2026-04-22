@@ -57,7 +57,7 @@ HAS-TIME determines if timestamp has time component."
   "Teardown function run after each test."
   (chime-delete-test-base-dir))
 
-;;; Tests for chime-event-has-any-passed-time
+;;; Tests for chime--event-has-any-passed-time
 
 (ert-deftest test-overdue-has-passed-time-yesterday-all-day ()
   "Test that all-day event from yesterday is recognized as passed.
@@ -80,7 +80,7 @@ REFACTORED: Uses dynamic timestamps via testutil-time.el"
                      yesterday-timestamp
                      nil)))  ; all-day event
         (with-test-time now
-          (should (chime-event-has-any-passed-time event))))
+          (should (chime--event-has-any-passed-time event))))
     (test-chime-overdue-teardown)))
 
 (ert-deftest test-overdue-has-passed-time-today-all-day ()
@@ -100,7 +100,7 @@ SPECIAL PROPERTIES:
   - Range: No
 
 EXPECTED BEHAVIOR:
-  chime-event-has-any-passed-time should return t because the event
+  chime--event-has-any-passed-time should return t because the event
   date (today) is not in the future.
 
 CURRENT IMPLEMENTATION (as of 2025-10-28):
@@ -120,7 +120,7 @@ REFACTORED: Uses dynamic timestamps via testutil-time.el"
                      today-timestamp
                      nil)))  ; all-day event
         (with-test-time now
-          (should (chime-event-has-any-passed-time event))))
+          (should (chime--event-has-any-passed-time event))))
     (test-chime-overdue-teardown)))
 
 (ert-deftest test-overdue-has-passed-time-tomorrow-all-day ()
@@ -144,7 +144,7 @@ REFACTORED: Uses dynamic timestamps via testutil-time.el"
                      tomorrow-timestamp
                      nil)))  ; all-day event
         (with-test-time now
-          (should-not (chime-event-has-any-passed-time event))))
+          (should-not (chime--event-has-any-passed-time event))))
     (test-chime-overdue-teardown)))
 
 (ert-deftest test-overdue-has-passed-time-timed-event-past ()
@@ -168,7 +168,7 @@ REFACTORED: Uses dynamic timestamps via testutil-time.el"
                      past-timestamp
                      t)))  ; timed event
         (with-test-time now
-          (should (chime-event-has-any-passed-time event))))
+          (should (chime--event-has-any-passed-time event))))
     (test-chime-overdue-teardown)))
 
 (ert-deftest test-overdue-has-passed-time-timed-event-future ()
@@ -192,10 +192,10 @@ REFACTORED: Uses dynamic timestamps via testutil-time.el"
                      future-timestamp
                      t)))  ; timed event
         (with-test-time now
-          (should-not (chime-event-has-any-passed-time event))))
+          (should-not (chime--event-has-any-passed-time event))))
     (test-chime-overdue-teardown)))
 
-;;; Tests for chime-display-as-day-wide-event with overdue setting
+;;; Tests for chime--display-as-day-wide-event with overdue setting
 
 (ert-deftest test-overdue-display-yesterday-all-day-with-overdue-enabled ()
   "Test that yesterday's all-day event is displayed when overdue is enabled.
@@ -221,7 +221,7 @@ REFACTORED: Uses dynamic timestamps via testutil-time.el"
                      yesterday-timestamp
                      nil)))
         (with-test-time now
-          (should (chime-display-as-day-wide-event event))))
+          (should (chime--display-as-day-wide-event event))))
     (test-chime-overdue-teardown)))
 
 (ert-deftest test-overdue-display-yesterday-all-day-with-overdue-disabled ()
@@ -241,7 +241,7 @@ REFACTORED: Uses dynamic timestamps via testutil-time.el"
                      yesterday-timestamp
                      nil)))
         (with-test-time now
-          (should-not (chime-display-as-day-wide-event event))))
+          (should-not (chime--display-as-day-wide-event event))))
     (test-chime-overdue-teardown)))
 
 (ert-deftest test-overdue-display-yesterday-timed-with-overdue-enabled ()
@@ -263,7 +263,7 @@ REFACTORED: Uses dynamic timestamps via testutil-time.el"
                      yesterday-timestamp
                      t)))
         (with-test-time now
-          (should (chime-display-as-day-wide-event event))))
+          (should (chime--display-as-day-wide-event event))))
     (test-chime-overdue-teardown)))
 
 (ert-deftest test-overdue-display-yesterday-timed-with-overdue-disabled ()
@@ -285,7 +285,7 @@ REFACTORED: Uses dynamic timestamps via testutil-time.el"
                      yesterday-timestamp
                      t)))
         (with-test-time now
-          (should-not (chime-display-as-day-wide-event event))))
+          (should-not (chime--display-as-day-wide-event event))))
     (test-chime-overdue-teardown)))
 
 (ert-deftest test-overdue-display-today-all-day-always-shown ()
@@ -307,10 +307,10 @@ REFACTORED: Uses dynamic timestamps via testutil-time.el"
         (with-test-time now
           ;; Should show with overdue enabled
           (let ((chime-show-any-overdue-with-day-wide-alerts t))
-            (should (chime-display-as-day-wide-event event)))
+            (should (chime--display-as-day-wide-event event)))
           ;; Should also show with overdue disabled (it's today, not overdue)
           (let ((chime-show-any-overdue-with-day-wide-alerts nil))
-            (should (chime-display-as-day-wide-event event)))))
+            (should (chime--display-as-day-wide-event event)))))
     (test-chime-overdue-teardown)))
 
 (ert-deftest test-overdue-display-week-old-all-day-with-overdue-enabled ()
@@ -332,7 +332,7 @@ REFACTORED: Uses dynamic timestamps via testutil-time.el"
                      week-ago-timestamp
                      nil)))
         (with-test-time now
-          (should (chime-display-as-day-wide-event event))))
+          (should (chime--display-as-day-wide-event event))))
     (test-chime-overdue-teardown)))
 
 (ert-deftest test-overdue-display-week-old-all-day-with-overdue-disabled ()
@@ -355,7 +355,7 @@ REFACTORED: Uses dynamic timestamps via testutil-time.el"
                      week-ago-timestamp
                      nil)))
         (with-test-time now
-          (should-not (chime-display-as-day-wide-event event))))
+          (should-not (chime--display-as-day-wide-event event))))
     (test-chime-overdue-teardown)))
 
 ;;; Tests verifying overdue doesn't affect future events
@@ -380,10 +380,10 @@ REFACTORED: Uses dynamic timestamps via testutil-time.el"
         (with-test-time now
           ;; Should NOT show with overdue enabled (it's future, not today)
           (let ((chime-show-any-overdue-with-day-wide-alerts t))
-            (should-not (chime-display-as-day-wide-event event)))
+            (should-not (chime--display-as-day-wide-event event)))
           ;; Should NOT show with overdue disabled (it's future, not today)
           (let ((chime-show-any-overdue-with-day-wide-alerts nil))
-            (should-not (chime-display-as-day-wide-event event)))))
+            (should-not (chime--display-as-day-wide-event event)))))
     (test-chime-overdue-teardown)))
 
 (provide 'test-chime-overdue-todos)

@@ -1,4 +1,4 @@
-;;; test-chime-environment-regex.el --- Tests for chime-environment-regex -*- lexical-binding: t; -*-
+;;; test-chime--environment-regex.el --- Tests for chime--environment-regex -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2026 Craig Jennings
 
@@ -19,7 +19,7 @@
 
 ;;; Commentary:
 
-;; Unit tests for chime-environment-regex function.
+;; Unit tests for chime--environment-regex function.
 ;; This function generates the regex used by async-inject-variables to
 ;; copy chime's config into the async subprocess.
 
@@ -29,9 +29,9 @@
 
 ;;; Normal Cases
 
-(ert-deftest test-chime-environment-regex-matches-default-variables ()
+(ert-deftest test-chime--environment-regex-matches-default-variables ()
   "The generated regex should match all default chime variable names."
-  (let ((regex (chime-environment-regex))
+  (let ((regex (chime--environment-regex))
         (chime-additional-environment-regexes nil))
     (dolist (var '("org-agenda-files" "load-path" "org-todo-keywords"
                    "chime-alert-intervals" "chime-keyword-whitelist"
@@ -40,10 +40,10 @@
                    "chime-predicate-blacklist"))
       (should (string-match-p regex var)))))
 
-(ert-deftest test-chime-environment-regex-includes-additional-regexes ()
+(ert-deftest test-chime--environment-regex-includes-additional-regexes ()
   "With additional regexes configured, the result should match those too."
   (let ((chime-additional-environment-regexes '("my-custom-var")))
-    (let ((regex (chime-environment-regex)))
+    (let ((regex (chime--environment-regex)))
       ;; Should still match defaults
       (should (string-match-p regex "org-agenda-files"))
       ;; Should also match the custom variable
@@ -51,12 +51,12 @@
 
 ;;; Boundary Cases
 
-(ert-deftest test-chime-environment-regex-empty-additional-list ()
+(ert-deftest test-chime--environment-regex-empty-additional-list ()
   "Empty additional regexes list should produce a valid regex matching defaults."
   (let ((chime-additional-environment-regexes nil))
-    (let ((regex (chime-environment-regex)))
+    (let ((regex (chime--environment-regex)))
       (should (stringp regex))
       (should (string-match-p regex "chime-alert-intervals")))))
 
-(provide 'test-chime-environment-regex)
-;;; test-chime-environment-regex.el ends here
+(provide 'test-chime--environment-regex)
+;;; test-chime--environment-regex.el ends here

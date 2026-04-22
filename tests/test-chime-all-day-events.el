@@ -60,8 +60,8 @@ REFACTORED: Uses dynamic timestamps"
          (timed-time (test-time-tomorrow-at 10 0))
          (all-day-event (test-allday--create-event "Birthday" (test-timestamp-string all-day-time t) nil))
          (timed-event (test-allday--create-event "Meeting" (test-timestamp-string timed-time) t)))
-    (should (chime-event-has-any-day-wide-timestamp all-day-event))
-    (should-not (chime-event-has-any-day-wide-timestamp timed-event))))
+    (should (chime--event-has-any-day-wide-timestamp all-day-event))
+    (should-not (chime--event-has-any-day-wide-timestamp timed-event))))
 
 ;;; Tests: Advance notice window
 
@@ -82,7 +82,7 @@ REFACTORED: Uses dynamic timestamps via testutil-time.el"
          (chime-day-wide-advance-notice nil)
          (event (test-allday--create-event "Birthday Tomorrow" tomorrow-timestamp nil)))
     (with-test-time now
-      (should-not (chime-event-within-advance-notice-window event)))))
+      (should-not (chime--event-within-advance-notice-window event)))))
 
 (ert-deftest test-chime-advance-notice-tomorrow ()
   "Test advance notice for event tomorrow when set to 1 day.
@@ -101,7 +101,7 @@ REFACTORED: Uses dynamic timestamps via testutil-time.el"
          (chime-day-wide-advance-notice 1)
          (event (test-allday--create-event "Birthday Tomorrow" tomorrow-timestamp nil)))
     (with-test-time now
-      (should (chime-event-within-advance-notice-window event)))))
+      (should (chime--event-within-advance-notice-window event)))))
 
 (ert-deftest test-chime-advance-notice-two-days ()
   "Test advance notice for event in 2 days when set to 2 days.
@@ -115,7 +115,7 @@ REFACTORED: Uses dynamic timestamps"
          (chime-day-wide-advance-notice 2)
          (event (test-allday--create-event "Birthday in 2 days" timestamp nil)))
     (with-test-time now
-      (should (chime-event-within-advance-notice-window event)))))
+      (should (chime--event-within-advance-notice-window event)))))
 
 (ert-deftest test-chime-advance-notice-too-far-future ()
   "Test that events beyond advance notice window are not included.
@@ -129,7 +129,7 @@ REFACTORED: Uses dynamic timestamps"
          (chime-day-wide-advance-notice 1)
          (event (test-allday--create-event "Birthday in 5 days" timestamp nil)))
     (with-test-time now
-      (should-not (chime-event-within-advance-notice-window event)))))
+      (should-not (chime--event-within-advance-notice-window event)))))
 
 (ert-deftest test-chime-advance-notice-today-not-included ()
   "Test that today's events are not in advance notice window.
@@ -144,7 +144,7 @@ REFACTORED: Uses dynamic timestamps"
     (with-test-time now
       ;; Today's event should NOT be in advance notice window
       ;; It should be handled by regular day-wide logic
-      (should-not (chime-event-within-advance-notice-window event)))))
+      (should-not (chime--event-within-advance-notice-window event)))))
 
 (ert-deftest test-chime-advance-notice-timed-events-ignored ()
   "Test that timed events are not included in advance notice.
@@ -159,7 +159,7 @@ REFACTORED: Uses dynamic timestamps"
          (event (test-allday--create-event "Meeting Tomorrow" timestamp t)))
     (with-test-time now
       ;; Timed events should not trigger advance notices
-      (should-not (chime-event-within-advance-notice-window event)))))
+      (should-not (chime--event-within-advance-notice-window event)))))
 
 ;;; Tests: Day-wide notification text
 
@@ -212,7 +212,7 @@ REFACTORED: Uses dynamic timestamps"
 
 ;;; Tests: Display as day-wide event
 
-(ert-deftest test-chime-display-as-day-wide-event-today ()
+(ert-deftest test-chime--display-as-day-wide-event-today ()
   "Test that all-day events today are displayed as day-wide.
 REFACTORED: Uses dynamic timestamps"
   (let* ((now (test-time-now))
@@ -220,9 +220,9 @@ REFACTORED: Uses dynamic timestamps"
          (chime-day-wide-advance-notice nil)
          (event (test-allday--create-event "Birthday Today" today-timestamp nil)))
     (with-test-time now
-      (should (chime-display-as-day-wide-event event)))))
+      (should (chime--display-as-day-wide-event event)))))
 
-(ert-deftest test-chime-display-as-day-wide-event-tomorrow-with-advance ()
+(ert-deftest test-chime--display-as-day-wide-event-tomorrow-with-advance ()
   "Test that all-day events tomorrow are displayed when advance notice is enabled.
 REFACTORED: Uses dynamic timestamps"
   (let* ((now (test-time-now))
@@ -231,9 +231,9 @@ REFACTORED: Uses dynamic timestamps"
          (chime-day-wide-advance-notice 1)
          (event (test-allday--create-event "Birthday Tomorrow" timestamp nil)))
     (with-test-time now
-      (should (chime-display-as-day-wide-event event)))))
+      (should (chime--display-as-day-wide-event event)))))
 
-(ert-deftest test-chime-display-as-day-wide-event-tomorrow-without-advance ()
+(ert-deftest test-chime--display-as-day-wide-event-tomorrow-without-advance ()
   "Test that all-day events tomorrow are NOT displayed without advance notice.
 REFACTORED: Uses dynamic timestamps"
   (let* ((now (test-time-now))
@@ -242,7 +242,7 @@ REFACTORED: Uses dynamic timestamps"
          (chime-day-wide-advance-notice nil)
          (event (test-allday--create-event "Birthday Tomorrow" timestamp nil)))
     (with-test-time now
-      (should-not (chime-display-as-day-wide-event event)))))
+      (should-not (chime--display-as-day-wide-event event)))))
 
 ;;; Tests: Tooltip configuration
 

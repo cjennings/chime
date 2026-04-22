@@ -1,4 +1,4 @@
-;;; test-chime-event-is-today.el --- Tests for chime-event-is-today -*- lexical-binding: t; -*-
+;;; test-chime--event-is-today.el --- Tests for chime--event-is-today -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2026 Craig Jennings
 
@@ -19,12 +19,12 @@
 
 ;;; Commentary:
 
-;; Unit tests for chime-event-is-today function.
+;; Unit tests for chime--event-is-today function.
 ;; This function checks if an event has any timestamps specifically on today's
 ;; date (not past days, not future days).
 ;;
 ;; NOTE: These tests use real dates (not with-test-time) because
-;; chime-event-is-today uses (decode-time) without arguments internally,
+;; chime--event-is-today uses (decode-time) without arguments internally,
 ;; which calls the C-level current_time and bypasses Lisp-level mocking.
 
 ;;; Code:
@@ -73,54 +73,54 @@
 
 ;;; Normal Cases
 
-(ert-deftest test-chime-event-is-today-timed-event-today ()
+(ert-deftest test-chime--event-is-today-timed-event-today ()
   "A timed event happening today should return truthy."
   (let ((event (test--make-timed-event (test--real-today-at 14 30))))
-    (should (chime-event-is-today event))))
+    (should (chime--event-is-today event))))
 
-(ert-deftest test-chime-event-is-today-all-day-event-today ()
+(ert-deftest test-chime--event-is-today-all-day-event-today ()
   "An all-day event for today should return truthy."
   (let ((event (test--make-all-day-event (test--real-today-at 0 0))))
-    (should (chime-event-is-today event))))
+    (should (chime--event-is-today event))))
 
-(ert-deftest test-chime-event-is-today-yesterday-returns-nil ()
+(ert-deftest test-chime--event-is-today-yesterday-returns-nil ()
   "An event from yesterday should return nil."
   (let ((event (test--make-timed-event (test--real-yesterday-at 14 30))))
-    (should-not (chime-event-is-today event))))
+    (should-not (chime--event-is-today event))))
 
-(ert-deftest test-chime-event-is-today-tomorrow-returns-nil ()
+(ert-deftest test-chime--event-is-today-tomorrow-returns-nil ()
   "An event for tomorrow should return nil."
   (let ((event (test--make-timed-event (test--real-tomorrow-at 14 30))))
-    (should-not (chime-event-is-today event))))
+    (should-not (chime--event-is-today event))))
 
-(ert-deftest test-chime-event-is-today-past-timed-event-today ()
+(ert-deftest test-chime--event-is-today-past-timed-event-today ()
   "A timed event earlier today (in the past) should return truthy."
   (let ((event (test--make-timed-event (test--real-today-at 0 1))))
-    (should (chime-event-is-today event))))
+    (should (chime--event-is-today event))))
 
-(ert-deftest test-chime-event-is-today-future-timed-event-today ()
+(ert-deftest test-chime--event-is-today-future-timed-event-today ()
   "A timed event later today (in the future) should return truthy."
   (let ((event (test--make-timed-event (test--real-today-at 23 58))))
-    (should (chime-event-is-today event))))
+    (should (chime--event-is-today event))))
 
 ;;; Boundary Cases
 
-(ert-deftest test-chime-event-is-today-event-at-2359-today ()
+(ert-deftest test-chime--event-is-today-event-at-2359-today ()
   "An event at 23:59 today should return truthy."
   (let ((event (test--make-timed-event (test--real-today-at 23 59))))
-    (should (chime-event-is-today event))))
+    (should (chime--event-is-today event))))
 
-(ert-deftest test-chime-event-is-today-event-at-0000-today ()
+(ert-deftest test-chime--event-is-today-event-at-0000-today ()
   "An event at 00:00 today should return truthy."
   (let ((event (test--make-timed-event (test--real-today-at 0 0))))
-    (should (chime-event-is-today event))))
+    (should (chime--event-is-today event))))
 
 ;;; Error Cases
 
-(ert-deftest test-chime-event-is-today-empty-times-returns-nil ()
+(ert-deftest test-chime--event-is-today-empty-times-returns-nil ()
   "An event with no times should return nil."
   (let ((event '((times . ()))))
-    (should-not (chime-event-is-today event))))
+    (should-not (chime--event-is-today event))))
 
-(provide 'test-chime-event-is-today)
-;;; test-chime-event-is-today.el ends here
+(provide 'test-chime--event-is-today)
+;;; test-chime--event-is-today.el ends here

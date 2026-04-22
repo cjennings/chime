@@ -59,7 +59,7 @@ REFACTORED: Uses dynamic timestamps and with-test-time"
                      (lambda (msg)
                        (setq notify-called t)
                        (push msg notify-messages)))
-                    ((symbol-function 'chime-current-time-is-day-wide-time)
+                    ((symbol-function 'chime--current-time-is-day-wide-time)
                      (lambda () nil)))
             (let* ((event `((times . ((,timestamp-str . ,event-time)))
                             (title . "Team Meeting")
@@ -89,7 +89,7 @@ REFACTORED: Uses dynamic timestamps and with-test-time"
         (with-test-time now
           (cl-letf (((symbol-function 'chime--notify)
                      (lambda (msg) (setq notify-count (1+ notify-count))))
-                    ((symbol-function 'chime-current-time-is-day-wide-time)
+                    ((symbol-function 'chime--current-time-is-day-wide-time)
                      (lambda () nil)))
             (let* ((event1 `((times . ((,timestamp-str-1 . ,event-time-1)))
                              (title . "Meeting 1")
@@ -117,7 +117,7 @@ REFACTORED: Uses dynamic timestamps and with-test-time"
         (with-test-time now
           (cl-letf (((symbol-function 'chime--notify)
                      (lambda (msg) (push msg notify-messages)))
-                    ((symbol-function 'chime-current-time-is-day-wide-time)
+                    ((symbol-function 'chime--current-time-is-day-wide-time)
                      (lambda () nil)))
             (let* ((event1 `((times . ((,timestamp-str . ,event-time)))
                              (title . "Team Meeting")
@@ -146,9 +146,9 @@ REFACTORED: Uses dynamic timestamps and with-test-time"
           (cl-letf (((symbol-function 'chime--notify)
                      (lambda (msg) (setq notify-count (1+ notify-count))))
                     ;; Mock day-wide time to return true
-                    ((symbol-function 'chime-current-time-is-day-wide-time)
+                    ((symbol-function 'chime--current-time-is-day-wide-time)
                      (lambda () t))
-                    ((symbol-function 'chime-day-wide-notifications)
+                    ((symbol-function 'chime--day-wide-notifications)
                      (lambda (events) (list "Day-wide alert"))))
             (let* ((event `((times . ((,timestamp-str . ,event-time)))
                             (title . "All Day Event")
@@ -172,9 +172,9 @@ REFACTORED: Uses dynamic timestamps and with-test-time"
         (with-test-time now
           (cl-letf (((symbol-function 'chime--notify) (lambda (msg) nil))
                     ;; Mock day-wide time to return false
-                    ((symbol-function 'chime-current-time-is-day-wide-time)
+                    ((symbol-function 'chime--current-time-is-day-wide-time)
                      (lambda () nil))
-                    ((symbol-function 'chime-day-wide-notifications)
+                    ((symbol-function 'chime--day-wide-notifications)
                      (lambda (events)
                        (setq day-wide-called t)
                        '())))
@@ -198,7 +198,7 @@ REFACTORED: No timestamps used"
       (let ((notify-called nil))
         (cl-letf (((symbol-function 'chime--notify)
                    (lambda (msg) (setq notify-called t)))
-                  ((symbol-function 'chime-current-time-is-day-wide-time)
+                  ((symbol-function 'chime--current-time-is-day-wide-time)
                    (lambda () nil)))
           (let ((events '()))
             (chime--process-notifications events)
@@ -220,7 +220,7 @@ REFACTORED: Uses dynamic timestamps and with-test-time"
         (with-test-time now
           (cl-letf (((symbol-function 'chime--notify)
                      (lambda (msg) (setq notify-called t)))
-                    ((symbol-function 'chime-current-time-is-day-wide-time)
+                    ((symbol-function 'chime--current-time-is-day-wide-time)
                      (lambda () nil)))
             (let* ((event `((times . ((,timestamp-str . ,event-time)))
                             (title . "Future Event")
@@ -244,7 +244,7 @@ REFACTORED: Uses dynamic timestamps and with-test-time"
         (with-test-time now
           (cl-letf (((symbol-function 'chime--notify)
                      (lambda (msg) (setq notify-count (1+ notify-count))))
-                    ((symbol-function 'chime-current-time-is-day-wide-time)
+                    ((symbol-function 'chime--current-time-is-day-wide-time)
                      (lambda () nil)))
             (let* ((event `((times . ((,timestamp-str . ,event-time)))
                             (title . "Single Event")
@@ -266,7 +266,7 @@ REFACTORED: No timestamps used"
       (let ((notify-called nil))
         (cl-letf (((symbol-function 'chime--notify)
                    (lambda (msg) (setq notify-called t)))
-                  ((symbol-function 'chime-current-time-is-day-wide-time)
+                  ((symbol-function 'chime--current-time-is-day-wide-time)
                    (lambda () nil)))
           ;; Should not error with nil events
           (should-not (condition-case nil
@@ -287,7 +287,7 @@ REFACTORED: Uses dynamic timestamps and with-test-time"
         (with-test-time now
           (cl-letf (((symbol-function 'chime--notify)
                      (lambda (msg) (setq notify-called t)))
-                    ((symbol-function 'chime-current-time-is-day-wide-time)
+                    ((symbol-function 'chime--current-time-is-day-wide-time)
                      (lambda () nil)))
             (let* (;; Invalid event: missing required fields
                    (events (list '((invalid . "structure")))))
@@ -311,7 +311,7 @@ REFACTORED: Uses dynamic timestamps and with-test-time"
         (with-test-time now
           (cl-letf (((symbol-function 'chime--notify)
                      (lambda (msg) (setq notify-count (1+ notify-count))))
-                    ((symbol-function 'chime-current-time-is-day-wide-time)
+                    ((symbol-function 'chime--current-time-is-day-wide-time)
                      (lambda () nil)))
             (let* ((valid-event `((times . ((,timestamp-str . ,event-time)))
                                   (title . "Valid Event")
@@ -342,9 +342,9 @@ not one notification per event."
                      (lambda (msg)
                        (setq notify-count (1+ notify-count))
                        (push msg notify-messages)))
-                    ((symbol-function 'chime-current-time-is-day-wide-time)
+                    ((symbol-function 'chime--current-time-is-day-wide-time)
                      (lambda () t))
-                    ((symbol-function 'chime-day-wide-notifications)
+                    ((symbol-function 'chime--day-wide-notifications)
                      (lambda (events)
                        (list (cons "Blake's birthday is today" 'medium)
                              (cons "Holiday: Memorial Day is today" 'medium)
@@ -371,9 +371,9 @@ not one notification per event."
                      (lambda (msg)
                        (setq notify-count (1+ notify-count))
                        (push msg notify-messages)))
-                    ((symbol-function 'chime-current-time-is-day-wide-time)
+                    ((symbol-function 'chime--current-time-is-day-wide-time)
                      (lambda () t))
-                    ((symbol-function 'chime-day-wide-notifications)
+                    ((symbol-function 'chime--day-wide-notifications)
                      (lambda (events)
                        (list (cons "Blake's birthday is today" 'medium)))))
             (chime--process-notifications '())

@@ -20,8 +20,8 @@
 ;;; Commentary:
 
 ;; Unit tests for day-wide time matching functions:
-;; - chime-current-time-matches-time-of-day-string
-;; - chime-current-time-is-day-wide-time
+;; - chime--current-time-matches-time-of-day-string
+;; - chime--current-time-is-day-wide-time
 ;;
 ;; These functions determine when to fire notifications for all-day events
 ;; by comparing the current time to configured alert times like "08:00".
@@ -37,7 +37,7 @@
 (require 'testutil-general (expand-file-name "testutil-general.el"))
 (require 'testutil-time (expand-file-name "testutil-time.el"))
 
-;;;; Tests for chime-current-time-matches-time-of-day-string
+;;;; Tests for chime--current-time-matches-time-of-day-string
 
 ;;; Normal Cases
 
@@ -45,19 +45,19 @@
   "Should return truthy when current time matches the time-of-day string."
   (let ((mock-time (test-time-today-at 8 0)))
     (with-test-time mock-time
-      (should (chime-current-time-matches-time-of-day-string "8:00")))))
+      (should (chime--current-time-matches-time-of-day-string "8:00")))))
 
 (ert-deftest test-chime-time-matches-string-no-match ()
   "Should return nil when current time does not match."
   (let ((mock-time (test-time-today-at 9 0)))
     (with-test-time mock-time
-      (should-not (chime-current-time-matches-time-of-day-string "8:00")))))
+      (should-not (chime--current-time-matches-time-of-day-string "8:00")))))
 
 (ert-deftest test-chime-time-matches-string-afternoon ()
   "Should match afternoon times correctly."
   (let ((mock-time (test-time-today-at 17 0)))
     (with-test-time mock-time
-      (should (chime-current-time-matches-time-of-day-string "17:00")))))
+      (should (chime--current-time-matches-time-of-day-string "17:00")))))
 
 ;;; Boundary Cases
 
@@ -65,27 +65,27 @@
   "Should match midnight (00:00)."
   (let ((mock-time (test-time-today-at 0 0)))
     (with-test-time mock-time
-      (should (chime-current-time-matches-time-of-day-string "0:00")))))
+      (should (chime--current-time-matches-time-of-day-string "0:00")))))
 
 (ert-deftest test-chime-time-matches-string-end-of-day ()
   "Should match 23:59."
   (let ((mock-time (test-time-today-at 23 59)))
     (with-test-time mock-time
-      (should (chime-current-time-matches-time-of-day-string "23:59")))))
+      (should (chime--current-time-matches-time-of-day-string "23:59")))))
 
 (ert-deftest test-chime-time-matches-string-off-by-one-minute ()
   "One minute off should not match."
   (let ((mock-time (test-time-today-at 8 1)))
     (with-test-time mock-time
-      (should-not (chime-current-time-matches-time-of-day-string "8:00")))))
+      (should-not (chime--current-time-matches-time-of-day-string "8:00")))))
 
 (ert-deftest test-chime-time-matches-string-leading-zero ()
   "Should match with leading zero in time string (08:00)."
   (let ((mock-time (test-time-today-at 8 0)))
     (with-test-time mock-time
-      (should (chime-current-time-matches-time-of-day-string "08:00")))))
+      (should (chime--current-time-matches-time-of-day-string "08:00")))))
 
-;;;; Tests for chime-current-time-is-day-wide-time
+;;;; Tests for chime--current-time-is-day-wide-time
 
 ;;; Normal Cases
 
@@ -94,21 +94,21 @@
   (let ((mock-time (test-time-today-at 8 0)))
     (with-test-time mock-time
       (let ((chime-day-wide-alert-times '("08:00")))
-        (should (chime-current-time-is-day-wide-time))))))
+        (should (chime--current-time-is-day-wide-time))))))
 
 (ert-deftest test-chime-is-day-wide-time-matches-second-entry ()
   "Should return truthy when current time matches any entry, not just first."
   (let ((mock-time (test-time-today-at 17 0)))
     (with-test-time mock-time
       (let ((chime-day-wide-alert-times '("08:00" "17:00")))
-        (should (chime-current-time-is-day-wide-time))))))
+        (should (chime--current-time-is-day-wide-time))))))
 
 (ert-deftest test-chime-is-day-wide-time-no-match ()
   "Should return nil when current time matches no configured alert times."
   (let ((mock-time (test-time-today-at 12 0)))
     (with-test-time mock-time
       (let ((chime-day-wide-alert-times '("08:00" "17:00")))
-        (should-not (chime-current-time-is-day-wide-time))))))
+        (should-not (chime--current-time-is-day-wide-time))))))
 
 ;;; Boundary Cases
 
@@ -117,21 +117,21 @@
   (let ((mock-time (test-time-today-at 8 0)))
     (with-test-time mock-time
       (let ((chime-day-wide-alert-times '()))
-        (should-not (chime-current-time-is-day-wide-time))))))
+        (should-not (chime--current-time-is-day-wide-time))))))
 
 (ert-deftest test-chime-is-day-wide-time-nil-list ()
   "Should return nil when alert times list is nil."
   (let ((mock-time (test-time-today-at 8 0)))
     (with-test-time mock-time
       (let ((chime-day-wide-alert-times nil))
-        (should-not (chime-current-time-is-day-wide-time))))))
+        (should-not (chime--current-time-is-day-wide-time))))))
 
 (ert-deftest test-chime-is-day-wide-time-matches-first-of-many ()
   "Should return truthy when matching the first of several alert times."
   (let ((mock-time (test-time-today-at 8 0)))
     (with-test-time mock-time
       (let ((chime-day-wide-alert-times '("08:00" "12:00" "17:00")))
-        (should (chime-current-time-is-day-wide-time))))))
+        (should (chime--current-time-is-day-wide-time))))))
 
 (provide 'test-chime-day-wide-time-matching)
 ;;; test-chime-day-wide-time-matching.el ends here

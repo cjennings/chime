@@ -725,49 +725,49 @@ Title is truncated per `chime-max-title-length' if set."
                    (?T . ,(chime--get-hh-mm-from-org-time-string (car str-interval)))
                    (?u . ,(chime--time-left (* 60 minutes)))))))
 
-(defun chime-get-minutes-into-day (time)
+(defun chime--get-minutes-into-day (time)
   "Get minutes elapsed since midnight for TIME string."
   (org-duration-to-minutes (org-get-time-of-day time t)))
 
-(defun chime-get-hours-minutes-from-time (time-string)
+(defun chime--get-hours-minutes-from-time (time-string)
   "Extract hours and minutes from TIME-STRING.
 Returns a list of (HOURS MINUTES)."
-  (let ((total-minutes (truncate (chime-get-minutes-into-day time-string))))
+  (let ((total-minutes (truncate (chime--get-minutes-into-day time-string))))
     (list (/ total-minutes 60)
           (mod total-minutes 60))))
 
-(defun chime-set-hours-minutes-for-time (time hours minutes)
+(defun chime--set-hours-minutes-for-time (time hours minutes)
   "Set HOURS and MINUTES for TIME, preserving date components."
   (cl-destructuring-bind (_s _m _h day month year dow dst utcoff) (decode-time time)
     (encode-time 0 minutes hours day month year dow dst utcoff)))
 
-(defun chime-current-time-matches-time-of-day-string (time-of-day-string)
+(defun chime--current-time-matches-time-of-day-string (time-of-day-string)
   "Check if current time matches TIME-OF-DAY-STRING."
   (let ((now (current-time)))
     (chime--time=
      now
-     (apply 'chime-set-hours-minutes-for-time
+     (apply 'chime--set-hours-minutes-for-time
             now
-            (chime-get-hours-minutes-from-time time-of-day-string)))))
+            (chime--get-hours-minutes-from-time time-of-day-string)))))
 
-(defun chime-current-time-is-day-wide-time ()
+(defun chime--current-time-is-day-wide-time ()
   "Check if current time matches any day-wide alert time."
-  (--any (chime-current-time-matches-time-of-day-string it)
+  (--any (chime--current-time-matches-time-of-day-string it)
          chime-day-wide-alert-times))
 
 ;;;; All-Day Event Handling
 
-(defun chime-day-wide-notifications (events)
+(defun chime--day-wide-notifications (events)
   "Generate notification texts for day-wide EVENTS.
 Returns a list of (MESSAGE . SEVERITY) cons cells with \\='medium severity."
   (->> events
-       (-filter 'chime-display-as-day-wide-event)
+       (-filter 'chime--display-as-day-wide-event)
        (-map 'chime--day-wide-notification-text)
        (-uniq)
        ;; Wrap messages in cons cells with default 'medium' severity
        (--map (cons it 'medium))))
 
-(defun chime-display-as-day-wide-event (event)
+(defun chime--display-as-day-wide-event (event)
   "Check if EVENT should be displayed as a day-wide event.
 Considers both events happening today and advance notices for future events.
 
@@ -780,21 +780,21 @@ When nil:
   - Hides overdue items from past days"
   (or
    ;; Events happening today or in the past
-   (and (chime-event-has-any-passed-time event)
+   (and (chime--event-has-any-passed-time event)
         (or chime-show-any-overdue-with-day-wide-alerts
             ;; When overdue alerts disabled, only show today's events
-            (chime-event-is-today event)))
+            (chime--event-is-today event)))
    ;; Advance notice for upcoming all-day events
    (and chime-day-wide-advance-notice
-        (chime-event-has-any-day-wide-timestamp event)
-        (chime-event-within-advance-notice-window event))))
+        (chime--event-has-any-day-wide-timestamp event)
+        (chime--event-within-advance-notice-window event))))
 
-(defun chime-event-has-any-day-wide-timestamp (event)
+(defun chime--event-has-any-day-wide-timestamp (event)
   "Check if EVENT has any day-wide (no time component) timestamps."
   (--any (not (chime--has-timestamp (car it)))
          (cdr (assoc 'times event))))
 
-(defun chime-event-within-advance-notice-window (event)
+(defun chime--event-within-advance-notice-window (event)
   "Check if EVENT has any day-wide timestamps within advance notice window.
 Returns t if any all-day timestamp is between tomorrow and N days from now,
 where N is `chime-day-wide-advance-notice'."
@@ -821,7 +821,7 @@ where N is `chime-day-wide-advance-notice'."
                 (time-less-p event-time window-end)))) ;; Event is within window
        all-times))))
 
-(defun chime-event-has-any-passed-time (event)
+(defun chime--event-has-any-passed-time (event)
   "Check if EVENT has any timestamps in the past or today.
 For all-day events, checks if the date is today or earlier."
   (let* ((now (current-time))
@@ -843,7 +843,7 @@ For all-day events, checks if the date is today or earlier."
              (not (time-less-p today-start event-date))))))
      (cdr (assoc 'times event)))))
 
-(defun chime-event-is-today (event)
+(defun chime--event-is-today (event)
   "Check if EVENT has any timestamps that are specifically today (not past days).
 For all-day events, checks if the date is exactly today.
 For timed events, checks if the time is today (past or future)."
@@ -892,9 +892,9 @@ Returns integer days (ceiling), or nil if no all-day timestamps found."
   "Generate notification text for day-wide EVENT.
 Handles both same-day events and advance notices."
   (let* ((title (cdr (assoc 'title event)))
-         (is-today (chime-event-has-any-passed-time event))
+         (is-today (chime--event-has-any-passed-time event))
          (is-advance-notice (and chime-day-wide-advance-notice
-                                (chime-event-within-advance-notice-window event))))
+                                (chime--event-within-advance-notice-window event))))
     (cond
      (is-today
       (format "%s is due or scheduled today" title))
@@ -1312,7 +1312,7 @@ Combines keyword, tag, and custom predicate blacklists."
                  "chime-predicate-blacklist")))
         string-end)))
 
-(defun chime-environment-regex ()
+(defun chime--environment-regex ()
   "Generate regex for environment variables to inject into async process."
   (macroexpand
    `(rx (or
@@ -1328,7 +1328,7 @@ Combines keyword, tag, and custom predicate blacklists."
   `(lambda ()
     (setf org-agenda-use-time-grid nil)
     (setf org-agenda-compact-blocks t)
-    ,(async-inject-variables (chime-environment-regex))
+    ,(async-inject-variables (chime--environment-regex))
 
     (package-initialize)
     (require 'chime)
@@ -1721,8 +1721,8 @@ Handles both regular event notifications and day-wide alerts."
            (-mapcat 'chime--check-event)
            (-uniq))
     'chime--notify)
-  (when (chime-current-time-is-day-wide-time)
-    (let ((day-wide (chime-day-wide-notifications events)))
+  (when (chime--current-time-is-day-wide-time)
+    (let ((day-wide (chime--day-wide-notifications events)))
       (when day-wide
         (if (= 1 (length day-wide))
             ;; Single event: send as normal notification
