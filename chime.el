@@ -1173,6 +1173,31 @@ Returns (EVENT TIME-STR MINUTES-UNTIL EVENT-TEXT) or nil if none found."
     (when soonest-event
       (list soonest-event (car soonest-time-info) soonest-minutes soonest-event-text))))
 
+(defun chime--render-modeline-string (soonest-modeline upcoming tooltip-lookahead-minutes)
+  "Build the propertized modeline string for current event state.
+SOONEST-MODELINE is (EVENT TIME-STR MINUTES TEXT) when a timed event
+falls inside the modeline window, otherwise nil.
+UPCOMING is the tooltip-event list (already stored in
+`chime--upcoming-events' by the caller).
+TOOLTIP-LOOKAHEAD-MINUTES drives the no-events tooltip message.
+Returns a propertized string, or nil when nothing should be shown."
+  (cond
+   (soonest-modeline
+    (chime--propertize-modeline-string
+     (format chime-modeline-format (nth 3 soonest-modeline))))
+   (chime-modeline-no-events-text
+    (let ((map (make-sparse-keymap))
+          (tooltip-text (if upcoming
+                            (chime--make-tooltip upcoming)
+                          (chime--make-no-events-tooltip tooltip-lookahead-minutes))))
+      (define-key map [mode-line mouse-1] #'chime--open-calendar-url)
+      (when upcoming
+        (define-key map [mode-line mouse-3] #'chime--jump-to-first-event))
+      (propertize chime-modeline-no-events-text
+                  'help-echo tooltip-text
+                  'mouse-face 'mode-line-highlight
+                  'local-map map)))))
+
 (defun chime--update-modeline (events)
   "Update modeline with next upcoming event from EVENTS.
 Orchestrates filtering, finding soonest event, and updating display.
@@ -1188,35 +1213,15 @@ Tooltip shows events within `chime-tooltip-lookahead-hours' hours."
            (tooltip-lookahead-minutes (if chime-tooltip-lookahead-hours
                                           (* chime-tooltip-lookahead-hours 60)
                                         chime-modeline-lookahead-minutes))
-           ;; Build list of upcoming events for tooltip
            (upcoming (chime--build-upcoming-events-list
-                     events now tooltip-lookahead-minutes
-                     chime-tooltip-show-all-day-events))
-           ;; Find soonest event for modeline display
+                      events now tooltip-lookahead-minutes
+                      chime-tooltip-show-all-day-events))
            (soonest-modeline (chime--find-soonest-modeline-event
-                             events now chime-modeline-lookahead-minutes)))
-      ;; Store upcoming events for tooltip
+                              events now chime-modeline-lookahead-minutes)))
       (setq chime--upcoming-events upcoming)
-      ;; Format and set modeline string
       (setq chime-modeline-string
-            (if soonest-modeline
-                ;; Show soonest event in modeline
-                (chime--propertize-modeline-string
-                 (format chime-modeline-format (nth 3 soonest-modeline)))
-              ;; Show icon when no event in modeline window
-              (when chime-modeline-no-events-text
-                (let ((map (make-sparse-keymap))
-                      (tooltip-text (if upcoming
-                                        (chime--make-tooltip upcoming)
-                                      (chime--make-no-events-tooltip tooltip-lookahead-minutes))))
-                  (define-key map [mode-line mouse-1] #'chime--open-calendar-url)
-                  (when upcoming
-                    (define-key map [mode-line mouse-3] #'chime--jump-to-first-event))
-                  (propertize chime-modeline-no-events-text
-                             'help-echo tooltip-text
-                             'mouse-face 'mode-line-highlight
-                             'local-map map)))))
-      ;; Force update ALL windows/modelines
+            (chime--render-modeline-string
+             soonest-modeline upcoming tooltip-lookahead-minutes))
       (force-mode-line-update t))))
 
 ;;;; Whitelist/Blacklist Filtering
