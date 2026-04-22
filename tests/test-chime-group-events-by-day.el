@@ -26,6 +26,13 @@
 ;; This is acceptable since events are generated internally by chime and should
 ;; always have the correct structure. If a malformed event is passed, it will error.
 ;; Removed test: test-chime-group-events-by-day-error-malformed-event
+;;
+;; Tests that build events as a fixed-minute offset from "now" pin the clock
+;; with `with-test-time' so the offsets do not accidentally cross a calendar
+;; day boundary on late-night runs. The clock value is bound in a `let' first
+;; (the macro re-evaluates BASE-TIME on every `current-time' call, so passing
+;; `(test-time-today-at ...)' directly would recurse — `test-time-today-at'
+;; calls `current-time' itself).
 
 ;;; Code:
 
@@ -61,68 +68,66 @@ MINUTES-UNTIL is minutes until event, TITLE is event title."
 ;;; Normal Cases
 
 (ert-deftest test-chime-group-events-by-day-normal-single-day ()
-  "Test grouping events all on same day.
-
-REFACTORED: Uses dynamic timestamps"
+  "Test grouping events all on same day."
   (test-chime-group-events-by-day-setup)
   (unwind-protect
-      (let* ((event1 (test-chime-make-event-item 10 "Event 1"))
-             (event2 (test-chime-make-event-item 30 "Event 2"))
-             (event3 (test-chime-make-event-item 60 "Event 3"))
-             (upcoming (list event1 event2 event3))
-             (result (chime--group-events-by-day upcoming)))
-        ;; Should have 1 group (today)
-        (should (= 1 (length result)))
-        ;; Group should have 3 events
-        (should (= 3 (length (cdr (car result)))))
-        ;; Date string should say "Today"
-        (should (string-match-p "Today" (car (car result)))))
+      (let ((pinned (test-time-today-at 12 0)))
+        (with-test-time pinned
+          (let* ((event1 (test-chime-make-event-item 10 "Event 1"))
+                 (event2 (test-chime-make-event-item 30 "Event 2"))
+                 (event3 (test-chime-make-event-item 60 "Event 3"))
+                 (upcoming (list event1 event2 event3))
+                 (result (chime--group-events-by-day upcoming)))
+            ;; Should have 1 group (today)
+            (should (= 1 (length result)))
+            ;; Group should have 3 events
+            (should (= 3 (length (cdr (car result)))))
+            ;; Date string should say "Today"
+            (should (string-match-p "Today" (car (car result)))))))
     (test-chime-group-events-by-day-teardown)))
 
 (ert-deftest test-chime-group-events-by-day-normal-multiple-days ()
-  "Test grouping events across multiple days.
-
-REFACTORED: Uses dynamic timestamps"
+  "Test grouping events across multiple days."
   (test-chime-group-events-by-day-setup)
   (unwind-protect
-      (let* ((event1 (test-chime-make-event-item 10 "Today Event"))
-             (event2 (test-chime-make-event-item 1500 "Tomorrow Event"))  ; > 1440
-             (event3 (test-chime-make-event-item 3000 "Future Event"))     ; > 2880
-             (upcoming (list event1 event2 event3))
-             (result (chime--group-events-by-day upcoming)))
-        ;; Should have 3 groups (today, tomorrow, future)
-        (should (= 3 (length result)))
-        ;; First group should say "Today"
-        (should (string-match-p "Today" (car (nth 0 result))))
-        ;; Second group should say "Tomorrow"
-        (should (string-match-p "Tomorrow" (car (nth 1 result)))))
+      (let ((pinned (test-time-today-at 12 0)))
+        (with-test-time pinned
+          (let* ((event1 (test-chime-make-event-item 10 "Today Event"))
+                 (event2 (test-chime-make-event-item 1500 "Tomorrow Event"))  ; > 1440
+                 (event3 (test-chime-make-event-item 3000 "Future Event"))     ; > 2880
+                 (upcoming (list event1 event2 event3))
+                 (result (chime--group-events-by-day upcoming)))
+            ;; Should have 3 groups (today, tomorrow, future)
+            (should (= 3 (length result)))
+            ;; First group should say "Today"
+            (should (string-match-p "Today" (car (nth 0 result))))
+            ;; Second group should say "Tomorrow"
+            (should (string-match-p "Tomorrow" (car (nth 1 result)))))))
     (test-chime-group-events-by-day-teardown)))
 
 (ert-deftest test-chime-group-events-by-day-normal-maintains-order ()
-  "Test that events maintain order within groups.
-
-REFACTORED: Uses dynamic timestamps"
+  "Test that events maintain order within groups."
   (test-chime-group-events-by-day-setup)
   (unwind-protect
-      (let* ((event1 (test-chime-make-event-item 10 "First"))
-             (event2 (test-chime-make-event-item 20 "Second"))
-             (event3 (test-chime-make-event-item 30 "Third"))
-             (upcoming (list event1 event2 event3))
-             (result (chime--group-events-by-day upcoming))
-             (today-events (cdr (car result))))
-        ;; Should maintain order
-        (should (= 3 (length today-events)))
-        (should (string= "First" (cdr (assoc 'title (car (nth 0 today-events))))))
-        (should (string= "Second" (cdr (assoc 'title (car (nth 1 today-events))))))
-        (should (string= "Third" (cdr (assoc 'title (car (nth 2 today-events)))))))
+      (let ((pinned (test-time-today-at 12 0)))
+        (with-test-time pinned
+          (let* ((event1 (test-chime-make-event-item 10 "First"))
+                 (event2 (test-chime-make-event-item 20 "Second"))
+                 (event3 (test-chime-make-event-item 30 "Third"))
+                 (upcoming (list event1 event2 event3))
+                 (result (chime--group-events-by-day upcoming))
+                 (today-events (cdr (car result))))
+            ;; Should maintain order
+            (should (= 3 (length today-events)))
+            (should (string= "First" (cdr (assoc 'title (car (nth 0 today-events))))))
+            (should (string= "Second" (cdr (assoc 'title (car (nth 1 today-events))))))
+            (should (string= "Third" (cdr (assoc 'title (car (nth 2 today-events)))))))))
     (test-chime-group-events-by-day-teardown)))
 
 ;;; Boundary Cases
 
 (ert-deftest test-chime-group-events-by-day-boundary-empty-list ()
-  "Test grouping empty events list.
-
-REFACTORED: No timestamps used"
+  "Test grouping empty events list."
   (test-chime-group-events-by-day-setup)
   (unwind-protect
       (let ((result (chime--group-events-by-day '())))
@@ -131,77 +136,103 @@ REFACTORED: No timestamps used"
     (test-chime-group-events-by-day-teardown)))
 
 (ert-deftest test-chime-group-events-by-day-boundary-single-event ()
-  "Test grouping single event.
-
-REFACTORED: Uses dynamic timestamps"
+  "Test grouping single event."
   (test-chime-group-events-by-day-setup)
   (unwind-protect
-      (let* ((event (test-chime-make-event-item 10 "Only Event"))
-             (upcoming (list event))
-             (result (chime--group-events-by-day upcoming)))
-        ;; Should have 1 group
-        (should (= 1 (length result)))
-        ;; Group should have 1 event
-        (should (= 1 (length (cdr (car result))))))
+      (let ((pinned (test-time-today-at 12 0)))
+        (with-test-time pinned
+          (let* ((event (test-chime-make-event-item 10 "Only Event"))
+                 (upcoming (list event))
+                 (result (chime--group-events-by-day upcoming)))
+            ;; Should have 1 group
+            (should (= 1 (length result)))
+            ;; Group should have 1 event
+            (should (= 1 (length (cdr (car result))))))))
     (test-chime-group-events-by-day-teardown)))
 
 (ert-deftest test-chime-group-events-by-day-boundary-exactly-1440-minutes ()
-  "Test event at exactly 1440 minutes (1 day boundary).
-
-REFACTORED: Uses dynamic timestamps"
+  "Test event at exactly 1440 minutes (1 day boundary)."
   (test-chime-group-events-by-day-setup)
   (unwind-protect
-      (let* ((event (test-chime-make-event-item 1440 "Boundary Event"))
-             (upcoming (list event))
-             (result (chime--group-events-by-day upcoming)))
-        ;; Should be grouped as "Tomorrow"
-        (should (= 1 (length result)))
-        (should (string-match-p "Tomorrow" (car (car result)))))
+      (let ((pinned (test-time-today-at 12 0)))
+        (with-test-time pinned
+          (let* ((event (test-chime-make-event-item 1440 "Boundary Event"))
+                 (upcoming (list event))
+                 (result (chime--group-events-by-day upcoming)))
+            ;; Should be grouped as "Tomorrow"
+            (should (= 1 (length result)))
+            (should (string-match-p "Tomorrow" (car (car result)))))))
     (test-chime-group-events-by-day-teardown)))
 
 (ert-deftest test-chime-group-events-by-day-boundary-just-under-1440 ()
   "Test event at 1439 minutes (23h 59m away).
 
-If current time is 10:00 AM, an event 1439 minutes away is at 9:59 AM
-the next calendar day, so it should be grouped as 'Tomorrow', not 'Today'.
-
-REFACTORED: Uses dynamic timestamps and corrects expected behavior"
+If current time is noon, an event 1439 minutes away is at 11:59 AM the
+next calendar day, so it should be grouped as 'Tomorrow', not 'Today'."
   (test-chime-group-events-by-day-setup)
   (unwind-protect
-      (let* ((event (test-chime-make-event-item 1439 "Almost Tomorrow"))
-             (upcoming (list event))
-             (result (chime--group-events-by-day upcoming)))
-        ;; Should be grouped as "Tomorrow" (next calendar day)
-        (should (= 1 (length result)))
-        (should (string-match-p "Tomorrow" (car (car result)))))
+      (let ((pinned (test-time-today-at 12 0)))
+        (with-test-time pinned
+          (let* ((event (test-chime-make-event-item 1439 "Almost Tomorrow"))
+                 (upcoming (list event))
+                 (result (chime--group-events-by-day upcoming)))
+            ;; Should be grouped as "Tomorrow" (next calendar day)
+            (should (= 1 (length result)))
+            (should (string-match-p "Tomorrow" (car (car result)))))))
     (test-chime-group-events-by-day-teardown)))
 
 (ert-deftest test-chime-group-events-by-day-boundary-exactly-2880-minutes ()
-  "Test event at exactly 2880 minutes (2 day boundary).
-
-REFACTORED: Uses dynamic timestamps"
+  "Test event at exactly 2880 minutes (2 day boundary)."
   (test-chime-group-events-by-day-setup)
   (unwind-protect
-      (let* ((event (test-chime-make-event-item 2880 "Two Days Away"))
-             (upcoming (list event))
-             (result (chime--group-events-by-day upcoming)))
-        ;; Should be grouped as a future day (not "Tomorrow")
-        (should (= 1 (length result)))
-        (should-not (string-match-p "Tomorrow" (car (car result)))))
+      (let ((pinned (test-time-today-at 12 0)))
+        (with-test-time pinned
+          (let* ((event (test-chime-make-event-item 2880 "Two Days Away"))
+                 (upcoming (list event))
+                 (result (chime--group-events-by-day upcoming)))
+            ;; Should be grouped as a future day (not "Tomorrow")
+            (should (= 1 (length result)))
+            (should-not (string-match-p "Tomorrow" (car (car result)))))))
     (test-chime-group-events-by-day-teardown)))
 
 (ert-deftest test-chime-group-events-by-day-boundary-zero-minutes ()
-  "Test event at 0 minutes (happening now).
-
-REFACTORED: Uses dynamic timestamps"
+  "Test event at 0 minutes (happening now)."
   (test-chime-group-events-by-day-setup)
   (unwind-protect
-      (let* ((event (test-chime-make-event-item 0 "Right Now"))
-             (upcoming (list event))
-             (result (chime--group-events-by-day upcoming)))
-        ;; Should be grouped as "Today"
-        (should (= 1 (length result)))
-        (should (string-match-p "Today" (car (car result)))))
+      (let ((pinned (test-time-today-at 12 0)))
+        (with-test-time pinned
+          (let* ((event (test-chime-make-event-item 0 "Right Now"))
+                 (upcoming (list event))
+                 (result (chime--group-events-by-day upcoming)))
+            ;; Should be grouped as "Today"
+            (should (= 1 (length result)))
+            (should (string-match-p "Today" (car (car result)))))))
+    (test-chime-group-events-by-day-teardown)))
+
+(ert-deftest test-chime-group-events-by-day-boundary-event-just-before-midnight-today ()
+  "Boundary: clock at 23:50, event +5 min lands at 23:55 (still today)."
+  (test-chime-group-events-by-day-setup)
+  (unwind-protect
+      (let ((pinned (test-time-today-at 23 50)))
+        (with-test-time pinned
+          (let* ((event (test-chime-make-event-item 5 "Late Tonight"))
+                 (upcoming (list event))
+                 (result (chime--group-events-by-day upcoming)))
+            (should (= 1 (length result)))
+            (should (string-match-p "Today" (car (car result)))))))
+    (test-chime-group-events-by-day-teardown)))
+
+(ert-deftest test-chime-group-events-by-day-boundary-event-crossing-midnight-tomorrow ()
+  "Boundary: clock at 23:50, event +20 min lands at 00:10 next day (Tomorrow)."
+  (test-chime-group-events-by-day-setup)
+  (unwind-protect
+      (let ((pinned (test-time-today-at 23 50)))
+        (with-test-time pinned
+          (let* ((event (test-chime-make-event-item 20 "Across Midnight"))
+                 (upcoming (list event))
+                 (result (chime--group-events-by-day upcoming)))
+            (should (= 1 (length result)))
+            (should (string-match-p "Tomorrow" (car (car result)))))))
     (test-chime-group-events-by-day-teardown)))
 
 ;;; Bug Reproduction Tests
@@ -239,9 +270,7 @@ instead of by calendar day."
 ;;; Error Cases
 
 (ert-deftest test-chime-group-events-by-day-error-nil-input ()
-  "Test that nil input doesn't crash.
-
-REFACTORED: No timestamps used"
+  "Test that nil input doesn't crash."
   (test-chime-group-events-by-day-setup)
   (unwind-protect
       (progn
