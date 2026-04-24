@@ -8,3 +8,4 @@
 /.claude/.cache/
 *.elc
 *.eln
+/inbox/
