@@ -1,7 +1,7 @@
 ;; -*- mode: eask; lexical-binding: t -*-
 
 (package "chime"
-         "0.6.0"
+         "0.7.0"
          "CHIME Heralds Imminent Modeline Events")
 
 (website-url "https://github.com/cjennings/chime")
