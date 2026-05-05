@@ -78,6 +78,24 @@
   "Chime customization options."
   :group 'org)
 
+(defun chime--validate-integer-setting (symbol value min allow-nil)
+  "Reject bad integer values for SYMBOL at customize time.
+VALUE is what the user is trying to set.  MIN is the inclusive floor.
+When ALLOW-NIL is non-nil, nil is accepted; otherwise nil fails like any
+other non-integer.  Returns VALUE on success so the caller can chain into
+`set-default'.  The error is a `user-error' so `customize-set-variable'
+surfaces it as a configuration problem rather than a generic error."
+  (cond
+   ((and allow-nil (null value)) value)
+   ((not (integerp value))
+    (user-error "%s must be %s, got: %S"
+                symbol
+                (if allow-nil "nil or an integer" "an integer")
+                value))
+   ((< value min)
+    (user-error "%s must be >= %d, got: %d" symbol min value))
+   (t value)))
+
 (defcustom chime-alert-intervals '((10 . medium) (0 . high))
   "Alert intervals with severity levels for upcoming events.
 Each element is a cons cell (MINUTES . SEVERITY) where:
@@ -311,7 +329,10 @@ Example: With value 1 and alert times \\='(\"08:00\"), you'll get:
   :package-version '(chime . "0.6.0")
   :group 'chime
   :type '(choice (const :tag "Same day only" nil)
-                 (integer :tag "Days in advance")))
+                 (integer :tag "Days in advance"))
+  :set (lambda (symbol value)
+         (chime--validate-integer-setting symbol value 0 t)
+         (set-default symbol value)))
 
 (defcustom chime-tooltip-show-all-day-events t
   "Whether to show all-day events in the tooltip.
@@ -350,7 +371,10 @@ Set to 0 to disable modeline display.
 This setting only takes effect when `chime-enable-modeline' is non-nil."
   :package-version '(chime . "0.6.0")
   :group 'chime
-  :type '(integer :tag "Minutes"))
+  :type '(integer :tag "Minutes")
+  :set (lambda (symbol value)
+         (chime--validate-integer-setting symbol value 0 nil)
+         (set-default symbol value)))
 
 (defcustom chime-modeline-format " ⏰ %s"
   "Format string for modeline display.
@@ -388,7 +412,10 @@ Note: larger values increase the `org-agenda-list' span in the async
 subprocess, which may slow event checks for large org collections."
   :package-version '(chime . "0.6.0")
   :group 'chime
-  :type '(integer :tag "Hours"))
+  :type '(integer :tag "Hours")
+  :set (lambda (symbol value)
+         (chime--validate-integer-setting symbol value 1 nil)
+         (set-default symbol value)))
 
 (defcustom chime-modeline-tooltip-max-events 5
   "Maximum number of events to show in modeline tooltip.
@@ -396,7 +423,10 @@ Set to nil to show all events within tooltip lookahead window."
   :package-version '(chime . "0.6.0")
   :group 'chime
   :type '(choice (integer :tag "Maximum events")
-                 (const :tag "Show all" nil)))
+                 (const :tag "Show all" nil))
+  :set (lambda (symbol value)
+         (chime--validate-integer-setting symbol value 1 t)
+         (set-default symbol value)))
 
 (defcustom chime-modeline-no-events-text " ⏰"
   "Text to display in modeline when no events are within lookahead window.
@@ -536,7 +566,10 @@ via `display-warning'.  The counter resets on any successful check.
 Set to 0 to disable failure warnings."
   :package-version '(chime . "0.6.0")
   :group 'chime
-  :type 'integer)
+  :type 'integer
+  :set (lambda (symbol value)
+         (chime--validate-integer-setting symbol value 0 nil)
+         (set-default symbol value)))
 
 (defcustom chime-debug nil
   "Enable debug functions for troubleshooting chime behavior.
@@ -616,7 +649,10 @@ Set to 0 to show errors immediately without retrying.
 Default is 3 retries (with 30-60s check intervals, this gives ~1.5-3 minutes
 for org-agenda-files to be populated)."
   :type 'integer
-  :group 'chime)
+  :group 'chime
+  :set (lambda (symbol value)
+         (chime--validate-integer-setting symbol value 0 nil)
+         (set-default symbol value)))
 
 (defvar chime-modeline-string nil
   "Modeline string showing next upcoming event.")
