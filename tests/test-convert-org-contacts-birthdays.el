@@ -417,18 +417,18 @@
               (insert-file-contents temp-file)
               (let ((content (buffer-string)))
                 ;; File header preserved
-                (should (string-search "#+TITLE: My Contacts" content))
+                (should (string-match-p (regexp-quote "#+TITLE: My Contacts") content))
 
                 ;; Alice's properties preserved
-                (should (string-search ":EMAIL: alice@example.com" content))
-                (should (string-search ":ADDRESS: 123 Main St" content))
-                (should (string-search ":BIRTHDAY: 1985-03-15" content))
+                (should (string-match-p (regexp-quote ":EMAIL: alice@example.com") content))
+                (should (string-match-p (regexp-quote ":ADDRESS: 123 Main St") content))
+                (should (string-match-p (regexp-quote ":BIRTHDAY: 1985-03-15") content))
 
                 ;; Alice's birthday timestamp added
                 (should (string-match-p "<1985-03-15 [A-Za-z]\\{3\\} \\+1y>" content))
 
                 ;; Alice's notes preserved
-                (should (string-search "Met at conference 2023" content))
+                (should (string-match-p (regexp-quote "Met at conference 2023") content))
 
                 ;; Bob's birthday timestamp added
                 (should (string-match-p "<1990-07-22 [A-Za-z]\\{3\\} \\+1y>" content))
@@ -495,12 +495,12 @@
             (insert-file-contents temp-file)
             (let ((content (buffer-string)))
               ;; All content preserved
-              (should (string-search "Some introductory text" content))
-              (should (string-search "** Notes" content))
-              (should (string-search "Some nested content" content))
-              (should (string-search "*** Deep nested" content))
-              (should (string-search "Closing remarks" content))
-              (should (string-search "#+FILETAGS: :contacts:" content)))))
+              (should (string-match-p (regexp-quote "Some introductory text") content))
+              (should (string-match-p (regexp-quote "** Notes") content))
+              (should (string-match-p (regexp-quote "Some nested content") content))
+              (should (string-match-p (regexp-quote "*** Deep nested") content))
+              (should (string-match-p (regexp-quote "Closing remarks") content))
+              (should (string-match-p (regexp-quote "#+FILETAGS: :contacts:") content)))))
       (when (file-exists-p temp-file) (delete-file temp-file))
       (let ((backup (concat temp-file ".backup-")))
         (dolist (file (directory-files (file-name-directory temp-file) t (regexp-quote (file-name-nondirectory backup))))
