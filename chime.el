@@ -628,24 +628,15 @@ has elapsed.  This gives startup hooks time to populate org-agenda-files.")
 Reset to 0 when validation succeeds.  Used to provide graceful retry
 behavior for users with async org-agenda-files initialization.")
 
-(defcustom chime-validation-max-retries 3
+(defvar chime--validation-max-retries 3
   "Maximum number of times to retry validation before showing error.
-When org-agenda-files is empty on startup, chime will retry validation
-on each check cycle (every `chime-check-interval' seconds) until either:
-  - Validation succeeds (org-agenda-files is populated)
-  - This retry limit is exceeded (error is shown)
+When `org-agenda-files' is empty on startup, chime will retry validation
+on each check cycle (every `chime-check-interval' seconds) until either
+validation succeeds or this retry limit is exceeded.
 
-This accommodates users with async initialization code that populates
-org-agenda-files after a delay (e.g., via idle timers).
-
-Set to 0 to show errors immediately without retrying.
-Default is 3 retries (with 30-60s check intervals, this gives ~1.5-3 minutes
-for org-agenda-files to be populated)."
-  :type 'integer
-  :group 'chime
-  :set (lambda (symbol value)
-         (chime--validate-integer-setting symbol value 0 nil)
-         (set-default symbol value)))
+This is internal because no user has reason to tune the defensive
+startup-timing window through Customize.  If you need to override the
+default for a specific environment, `setq' the variable in your init.")
 
 (defvar chime-modeline-string nil
   "Modeline string showing next upcoming event.")
@@ -1852,7 +1843,7 @@ Returns nil if validation failed and check should be skipped."
       (if (cl-some (lambda (i) (eq (car i) :error)) issues)
           (progn
             (setq chime--validation-retry-count (1+ chime--validation-retry-count))
-            (if (> chime--validation-retry-count chime-validation-max-retries)
+            (if (> chime--validation-retry-count chime--validation-max-retries)
                 (progn
                   (let ((errors (cl-remove-if-not (lambda (i) (eq (car i) :error)) issues)))
                     (chime--log-silently "Chime: Configuration validation failed with %d error(s) after %d retries:"
@@ -1866,12 +1857,12 @@ Returns nil if validation failed and check should be skipped."
                   (chime--set-modeline-error-state "Configuration error — check *Messages* buffer"))
               (message "Chime: Waiting for org-agenda-files to load... (attempt %d/%d)"
                        chime--validation-retry-count
-                       chime-validation-max-retries)
+                       chime--validation-max-retries)
               ;; Update modeline tooltip to show waiting state
               (chime--set-modeline-error-state
                (format "Waiting for org-agenda-files... (attempt %d/%d)"
                        chime--validation-retry-count
-                       chime-validation-max-retries)))
+                       chime--validation-max-retries)))
             nil)
         (setq chime--validation-done t)
         (setq chime--validation-retry-count 0)

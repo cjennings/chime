@@ -105,7 +105,7 @@ in the tooltip, not go blank."
         (org-agenda-files nil)
         (chime--validation-done nil)
         (chime--validation-retry-count 0)
-        (chime-validation-max-retries 0))
+        (chime--validation-max-retries 0))
     (unwind-protect
         (progn
           (chime-mode 1)

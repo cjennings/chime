@@ -12,7 +12,7 @@
 ;;
 ;; Components tested:
 ;; - chime--validation-retry-count tracking
-;; - chime-validation-max-retries configuration
+;; - chime--validation-max-retries configuration
 ;; - chime-check validation retry logic
 ;; - chime--stop retry counter reset
 ;; - Message display behavior (waiting vs error)
@@ -24,7 +24,7 @@
 ;;; Setup and Teardown
 
 (defvar test-chime-validation-retry--original-max-retries nil
-  "Original value of chime-validation-max-retries for restoration.")
+  "Original value of chime--validation-max-retries for restoration.")
 
 (defvar test-chime-validation-retry--original-agenda-files nil
   "Original value of org-agenda-files for restoration.")
@@ -32,7 +32,7 @@
 (defun test-chime-validation-retry-setup ()
   "Set up test environment before each test."
   ;; Save original values
-  (setq test-chime-validation-retry--original-max-retries chime-validation-max-retries)
+  (setq test-chime-validation-retry--original-max-retries chime--validation-max-retries)
   (setq test-chime-validation-retry--original-agenda-files org-agenda-files)
 
   ;; Reset validation state
@@ -40,12 +40,12 @@
   (setq chime--validation-retry-count 0)
 
   ;; Set predictable defaults
-  (setq chime-validation-max-retries 3))
+  (setq chime--validation-max-retries 3))
 
 (defun test-chime-validation-retry-teardown ()
   "Clean up test environment after each test."
   ;; Restore original values
-  (setq chime-validation-max-retries test-chime-validation-retry--original-max-retries)
+  (setq chime--validation-max-retries test-chime-validation-retry--original-max-retries)
   (setq org-agenda-files test-chime-validation-retry--original-agenda-files)
 
   ;; Reset validation state
@@ -179,14 +179,14 @@ process events normally."
 (ert-deftest test-chime-validation-retry-boundary-max-retries-zero ()
   "Test max-retries=0 shows error immediately without retrying.
 
-When chime-validation-max-retries is set to 0, validation failures
+When chime--validation-max-retries is set to 0, validation failures
 should immediately show the full error message without any retry
 attempts."
   (test-chime-validation-retry-setup)
   (unwind-protect
       (progn
         ;; Set max retries to 0
-        (setq chime-validation-max-retries 0)
+        (setq chime--validation-max-retries 0)
 
         ;; Empty org-agenda-files
         (setq org-agenda-files nil)
@@ -222,7 +222,7 @@ show full error."
   (unwind-protect
       (progn
         ;; Set max retries to 1
-        (setq chime-validation-max-retries 1)
+        (setq chime--validation-max-retries 1)
 
         ;; Empty org-agenda-files
         (setq org-agenda-files nil)
@@ -261,7 +261,7 @@ The (retry_count + 1)th attempt should show the error message."
   (unwind-protect
       (progn
         ;; Default max retries = 3
-        (setq chime-validation-max-retries 3)
+        (setq chime--validation-max-retries 3)
         (setq org-agenda-files nil)
 
         (cl-letf (((symbol-function 'chime--fetch-and-process)
@@ -346,7 +346,7 @@ displayed with all error details in the *Messages* buffer."
   (test-chime-validation-retry-setup)
   (unwind-protect
       (progn
-        (setq chime-validation-max-retries 2)
+        (setq chime--validation-max-retries 2)
         (setq org-agenda-files nil)
 
         (cl-letf (((symbol-function 'chime--fetch-and-process)
@@ -380,7 +380,7 @@ validation should never be marked as done."
   (test-chime-validation-retry-setup)
   (unwind-protect
       (progn
-        (setq chime-validation-max-retries 3)
+        (setq chime--validation-max-retries 3)
         (setq org-agenda-files nil)
 
         (cl-letf (((symbol-function 'chime--fetch-and-process)
@@ -406,7 +406,7 @@ many retry attempts, ensuring no integer overflow issues."
   (test-chime-validation-retry-setup)
   (unwind-protect
       (progn
-        (setq chime-validation-max-retries 1000)
+        (setq chime--validation-max-retries 1000)
         (setq org-agenda-files nil)
 
         (cl-letf (((symbol-function 'chime--fetch-and-process)

@@ -161,26 +161,8 @@
                    'chime-max-consecutive-failures -1)
                   :type 'user-error)))
 
-;;;; chime-validation-max-retries — integer >= 0
-
-(ert-deftest test-chime-validation-max-retries-accepts-zero ()
-  "Normal: 0 means show errors immediately without retrying (per docstring)."
-  (let ((chime-validation-max-retries 3))
-    (customize-set-variable 'chime-validation-max-retries 0)
-    (should (= 0 chime-validation-max-retries))))
-
-(ert-deftest test-chime-validation-max-retries-accepts-positive ()
-  "Normal: positive integer is valid."
-  (let ((chime-validation-max-retries 3))
-    (customize-set-variable 'chime-validation-max-retries 5)
-    (should (= 5 chime-validation-max-retries))))
-
-(ert-deftest test-chime-validation-max-retries-rejects-negative ()
-  "Error: negative retry count is meaningless."
-  (let ((chime-validation-max-retries 3))
-    (should-error (customize-set-variable
-                   'chime-validation-max-retries -1)
-                  :type 'user-error)))
+;; Note: `chime--validation-max-retries' was demoted from defcustom to
+;; defvar in 0.8 — no customize-time setter, no validation tests here.
 
 (provide 'test-chime-numeric-defcustom-setters)
 ;;; test-chime-numeric-defcustom-setters.el ends here
