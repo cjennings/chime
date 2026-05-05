@@ -34,10 +34,8 @@
   (let ((regex (chime--environment-regex))
         (chime-additional-environment-regexes nil))
     (dolist (var '("org-agenda-files" "load-path" "org-todo-keywords"
-                   "chime-alert-intervals" "chime-keyword-whitelist"
-                   "chime-keyword-blacklist" "chime-tags-whitelist"
-                   "chime-tags-blacklist" "chime-predicate-whitelist"
-                   "chime-predicate-blacklist"))
+                   "chime-alert-intervals"
+                   "chime-include-filters" "chime-exclude-filters"))
       (should (string-match-p regex var)))))
 
 (ert-deftest test-chime--environment-regex-includes-additional-regexes ()

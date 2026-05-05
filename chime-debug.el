@@ -115,10 +115,8 @@ Shows all relevant settings, agenda files, and current state."
   (chime--log-silently "  chime-alert-intervals: %s" chime-alert-intervals)
   (chime--log-silently "  chime-notification-title: %s" chime-notification-title)
   (chime--log-silently "\nFilters:")
-  (chime--log-silently "  chime-keyword-blacklist: %s" chime-keyword-blacklist)
-  (chime--log-silently "  chime-keyword-whitelist: %s" chime-keyword-whitelist)
-  (chime--log-silently "  chime-tags-blacklist: %s" chime-tags-blacklist)
-  (chime--log-silently "  chime-tags-whitelist: %s" chime-tags-whitelist)
+  (chime--log-silently "  chime-include-filters: %s" chime-include-filters)
+  (chime--log-silently "  chime-exclude-filters: %s" chime-exclude-filters)
   (chime--log-silently "\nOrg agenda files (%d):" (length org-agenda-files))
   (dolist (file org-agenda-files)
     (chime--log-silently "  - %s %s"

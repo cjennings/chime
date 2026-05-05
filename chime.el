@@ -49,8 +49,8 @@
 ;; Notification intervals and severity can be customized globally via
 ;; `chime-alert-intervals'.
 ;;
-;; Filter notifications using `chime-keyword-whitelist' and
-;; `chime-keyword-blacklist' variables.
+;; Filter notifications using `chime-include-filters' and
+;; `chime-exclude-filters' alists (keys: keywords, tags, predicates).
 ;;
 ;; See README.org for complete documentation.
 
@@ -173,31 +173,22 @@ Note: Changes take effect after restarting chime-mode."
   :type '(choice (const :tag "No icon" nil)
                  (file :tag "Icon file path")))
 
-(defcustom chime-keyword-whitelist nil
-  "Receive notifications for these keywords only.
-Leave this variable blank if you do not want to filter anything."
-  :package-version '(chime . "0.2.2")
-  :group 'chime
-  :type '(repeat string))
+(defcustom chime-include-filters nil
+  "Filters that INCLUDE events for notifications.
+An alist where each entry is (TYPE . VALUES):
 
-(defcustom chime-keyword-blacklist nil
-  "Never receive notifications for these keywords."
-  :package-version '(chime . "0.2.2")
-  :group 'chime
-  :type '(repeat string))
+  (keywords   . (\"TODO\" \"MEETING\"))   - org TODO keywords
+  (tags       . (\"work\" \"urgent\"))    - org tags
+  (predicates . (my-custom-predicate))  - functions taking a marker
 
-(defcustom chime-tags-whitelist nil
-  "Receive notifications for these tags only.
-Leave this variable blank if you do not want to filter anything."
-  :package-version '(chime . "0.3.1")
+When nil, all events pass.  When set, an event must match at least one
+listed value in any one filter type to pass."
+  :package-version '(chime . "0.8.0")
   :group 'chime
-  :type '(repeat string))
-
-(defcustom chime-tags-blacklist nil
-  "Never receive notifications for these tags."
-  :package-version '(chime . "0.3.1")
-  :group 'chime
-  :type '(repeat string))
+  :type '(alist :key-type (choice (const keywords)
+                                  (const tags)
+                                  (const predicates))
+                :value-type (repeat sexp)))
 
 (defcustom chime-display-time-format-string "%I:%M %p"
   "Format string for displaying event times.
@@ -259,15 +250,6 @@ Examples for long:
                                   (const long))
                 :value-type string))
 
-(defcustom chime-predicate-whitelist nil
-  "Receive notifications for events matching these predicates only.
-Each function should take an event POM and return non-nil iff that event should
-trigger a notification.  Leave this variable blank if you do not want to filter
-anything."
-  :package-version '(chime . "0.5.0")
-  :group 'chime
-  :type '(repeat function))
-
 (defcustom chime-additional-environment-regexes nil
   "Additional regular expressions for async environment injection.
 These regexes are provided to `async-inject-environment' before
@@ -276,15 +258,22 @@ running the async command to check notifications."
   :group 'chime
   :type '(repeat string))
 
-(defcustom chime-predicate-blacklist
-  '(chime-done-keywords-predicate
-    chime-declined-events-predicate)
-  "Never receive notifications for events matching these predicates.
-Each function should take an event POM and return non-nil iff that event should
-not trigger a notification."
-  :package-version '(chime . "0.5.0")
+(defcustom chime-exclude-filters
+  '((predicates . (chime-done-keywords-predicate
+                   chime-declined-events-predicate)))
+  "Filters that EXCLUDE events from notifications.
+Same structure as `chime-include-filters'.  An event matching ANY value
+in ANY filter type is suppressed.
+
+Defaults to excluding entries with a done keyword (DONE, CANCELLED, etc.
+per `org-done-keywords') and Google Calendar invitations the user has
+declined."
+  :package-version '(chime . "0.8.0")
   :group 'chime
-  :type '(repeat function))
+  :type '(alist :key-type (choice (const keywords)
+                                  (const tags)
+                                  (const predicates))
+                :value-type (repeat sexp)))
 
 (defcustom chime-extra-alert-plist nil
   "Additional arguments that should be passed to invocations of `alert'."
@@ -1256,43 +1245,39 @@ Tooltip shows events within `chime-tooltip-lookahead-hours' hours."
   (when-let* ((tags-str (org-entry-get marker "TAGS")))
     (org-split-string tags-str ":")))
 
-(defun chime--whitelist-predicates ()
-  "Return list of whitelist predicate functions.
-Combines keyword, tag, and custom predicate whitelists."
-  (->> `([,chime-keyword-whitelist
-          (lambda (it)
-            (-contains-p chime-keyword-whitelist
-                         (org-with-point-at it (org-get-todo-state))))]
+(defun chime--filter-predicates (filters)
+  "Build a list of predicate functions from a FILTERS alist.
+FILTERS is in the shape used by `chime-include-filters' and
+`chime-exclude-filters' — `(keywords . VALUES)', `(tags . VALUES)',
+`(predicates . FUNCTIONS)'.  Each non-empty entry contributes one
+marker-taking predicate.  An empty FILTERS list returns nil so callers
+can short-circuit the filter pass."
+  (let ((keywords   (alist-get 'keywords   filters))
+        (tags       (alist-get 'tags       filters))
+        (predicates (alist-get 'predicates filters))
+        (preds nil))
+    (when keywords
+      (push (lambda (marker)
+              (-contains-p keywords
+                           (org-with-point-at marker (org-get-todo-state))))
+            preds))
+    (when tags
+      (push (lambda (marker)
+              (-intersection tags (chime--get-tags marker)))
+            preds))
+    (when predicates
+      (push (lambda (marker)
+              (--some? (funcall it marker) predicates))
+            preds))
+    (nreverse preds)))
 
-         [,chime-tags-whitelist
-          (lambda (it)
-            (-intersection chime-tags-whitelist
-                           (chime--get-tags it)))]
+(defun chime--include-filter-predicates ()
+  "Predicates derived from `chime-include-filters'."
+  (chime--filter-predicates chime-include-filters))
 
-         [,chime-predicate-whitelist
-          (lambda (marker)
-            (--some? (funcall it marker) chime-predicate-whitelist))])
-       (--filter (aref it 0))
-       (--map (aref it 1))))
-
-(defun chime--blacklist-predicates ()
-  "Return list of blacklist predicate functions.
-Combines keyword, tag, and custom predicate blacklists."
-  (->> `([,chime-keyword-blacklist
-          (lambda (it)
-            (-contains-p chime-keyword-blacklist
-                         (org-with-point-at it (org-get-todo-state))))]
-
-         [,chime-tags-blacklist
-          (lambda (it)
-            (-intersection chime-tags-blacklist
-                           (chime--get-tags it)))]
-
-         [,chime-predicate-blacklist
-          (lambda (marker)
-            (--some? (funcall it marker) chime-predicate-blacklist))])
-       (--filter (aref it 0))
-       (--map (aref it 1))))
+(defun chime--exclude-filter-predicates ()
+  "Predicates derived from `chime-exclude-filters'."
+  (chime--filter-predicates chime-exclude-filters))
 
 (defun chime-done-keywords-predicate (marker)
   "Check if entry at MARKER has a done keyword."
@@ -1309,17 +1294,17 @@ because that is what real org-gcal exports use."
   (let ((status (org-entry-get marker "STATUS")))
     (and status (string= status "declined"))))
 
-(defun chime--apply-whitelist (markers)
-  "Apply whitelist to MARKERS."
-  (-if-let (whitelist-predicates (chime--whitelist-predicates))
-      (-> (apply '-orfn whitelist-predicates)
+(defun chime--apply-include-filters (markers)
+  "Keep MARKERS that match any predicate in `chime-include-filters'."
+  (-if-let (preds (chime--include-filter-predicates))
+      (-> (apply '-orfn preds)
           (-filter markers))
     markers))
 
-(defun chime--apply-blacklist (markers)
-  "Apply blacklist to MARKERS."
-  (-if-let (blacklist-predicates (chime--blacklist-predicates))
-      (-> (apply '-orfn blacklist-predicates)
+(defun chime--apply-exclude-filters (markers)
+  "Drop MARKERS that match any predicate in `chime-exclude-filters'."
+  (-if-let (preds (chime--exclude-filter-predicates))
+      (-> (apply '-orfn preds)
           (-remove markers))
     markers))
 
@@ -1336,12 +1321,8 @@ because that is what real org-gcal exports use."
                  "load-path"
                  "org-todo-keywords"
                  "chime-alert-intervals"
-                 "chime-keyword-whitelist"
-                 "chime-keyword-blacklist"
-                 "chime-tags-whitelist"
-                 "chime-tags-blacklist"
-                 "chime-predicate-whitelist"
-                 "chime-predicate-blacklist")))
+                 "chime-include-filters"
+                 "chime-exclude-filters")))
         string-end)))
 
 (defun chime--environment-regex ()
@@ -1390,8 +1371,8 @@ because that is what real org-gcal exports use."
                  (org-fix-agenda-info (text-properties-at 0 it))
                  'org-marker))
          (-non-nil)
-         (chime--apply-whitelist)
-         (chime--apply-blacklist)
+         (chime--apply-include-filters)
+         (chime--apply-exclude-filters)
          (-map 'chime--gather-info))))
 
 ;;;; Notification Dispatch

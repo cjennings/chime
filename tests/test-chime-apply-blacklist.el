@@ -1,4 +1,4 @@
-;;; test-chime-apply-blacklist.el --- Tests for chime--apply-blacklist -*- lexical-binding: t; -*-
+;;; test-chime-apply-blacklist.el --- Tests for chime--apply-exclude-filters -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2024-2026 Craig Jennings
 
@@ -19,7 +19,7 @@
 
 ;;; Commentary:
 
-;; Unit tests for chime--apply-blacklist function.
+;; Unit tests for chime--apply-exclude-filters function.
 ;; Tests use real org-mode buffers with real org syntax.
 ;; Tests cover normal cases, boundary cases, and error cases.
 
@@ -36,16 +36,12 @@
   "Setup function run before each test."
   (chime-create-test-base-dir)
   ;; Reset blacklist settings
-  (setq chime-keyword-blacklist nil)
-  (setq chime-tags-blacklist nil)
-  (setq chime-predicate-blacklist nil))
+  (setq chime-exclude-filters nil))
 
 (defun test-chime-apply-blacklist-teardown ()
   "Teardown function run after each test."
   (chime-delete-test-base-dir)
-  (setq chime-keyword-blacklist nil)
-  (setq chime-tags-blacklist nil)
-  (setq chime-predicate-blacklist nil))
+  (setq chime-exclude-filters nil))
 
 ;;; Normal Cases
 
@@ -53,10 +49,9 @@
   "Test that nil blacklist returns all markers unchanged."
   (test-chime-apply-blacklist-setup)
   (unwind-protect
-      (let* ((chime-keyword-blacklist nil)
-             (chime-tags-blacklist nil)
+      (let* ((chime-exclude-filters nil)
              (markers (list (make-marker) (make-marker) (make-marker)))
-             (result (chime--apply-blacklist markers)))
+             (result (chime--apply-exclude-filters markers)))
         ;; Should return all markers when blacklist is nil
         (should (equal (length result) 3)))
     (test-chime-apply-blacklist-teardown)))
@@ -76,8 +71,8 @@
           (let ((marker2 (point-marker)))
             (forward-line 1)
             (let ((marker3 (point-marker))
-                  (chime-keyword-blacklist '("DONE")))
-              (let ((result (chime--apply-blacklist (list marker1 marker2 marker3))))
+                  (chime-exclude-filters `((keywords . ,'("DONE")))))
+              (let ((result (chime--apply-exclude-filters (list marker1 marker2 marker3))))
                 ;; Should filter out DONE marker
                 (should (= (length result) 2))
                 (should (member marker1 result))
@@ -100,8 +95,8 @@
           (let ((marker2 (point-marker)))
             (forward-line 1)
             (let ((marker3 (point-marker))
-                  (chime-tags-blacklist '("personal")))
-              (let ((result (chime--apply-blacklist (list marker1 marker2 marker3))))
+                  (chime-exclude-filters `((tags . ,'("personal")))))
+              (let ((result (chime--apply-exclude-filters (list marker1 marker2 marker3))))
                 ;; Should filter out marker with "personal" tag
                 (should (= (length result) 2))
                 (should (member marker1 result))
@@ -124,9 +119,8 @@
           (let ((marker2 (point-marker)))
             (forward-line 1)
             (let ((marker3 (point-marker))
-                  (chime-keyword-blacklist '("DONE"))
-                  (chime-tags-blacklist '("archive")))
-              (let ((result (chime--apply-blacklist (list marker1 marker2 marker3))))
+                  (chime-exclude-filters `((keywords . ,'("DONE")) (tags . ,'("archive")))))
+              (let ((result (chime--apply-exclude-filters (list marker1 marker2 marker3))))
                 ;; Should filter out marker2 (DONE) and marker3 (archive tag)
                 (should (= (length result) 1))
                 (should (member marker1 result))
@@ -149,8 +143,8 @@
           (let ((marker2 (point-marker)))
             (forward-line 1)
             (let ((marker3 (point-marker))
-                  (chime-keyword-blacklist '("DONE")))
-              (let ((result (chime--apply-blacklist (list marker1 marker2 marker3))))
+                  (chime-exclude-filters `((keywords . ,'("DONE")))))
+              (let ((result (chime--apply-exclude-filters (list marker1 marker2 marker3))))
                 ;; Should only keep TODO marker, filter out both DONE markers
                 (should (= (length result) 1))
                 (should (member marker1 result)))))))
@@ -162,8 +156,8 @@
   "Test that empty markers list returns empty."
   (test-chime-apply-blacklist-setup)
   (unwind-protect
-      (let ((chime-keyword-blacklist '("DONE"))
-            (result (chime--apply-blacklist '())))
+      (let ((chime-exclude-filters `((keywords . ,'("DONE"))))
+            (result (chime--apply-exclude-filters '())))
         (should (equal result '())))
     (test-chime-apply-blacklist-teardown)))
 
@@ -179,8 +173,8 @@
         (let ((marker1 (point-marker)))
           (forward-line 1)
           (let ((marker2 (point-marker))
-                (chime-keyword-blacklist '("DONE")))
-            (let ((result (chime--apply-blacklist (list marker1 marker2))))
+                (chime-exclude-filters `((keywords . ,'("DONE")))))
+            (let ((result (chime--apply-exclude-filters (list marker1 marker2))))
               (should (= (length result) 1))
               (should (member marker1 result))))))
     (test-chime-apply-blacklist-teardown)))
@@ -195,8 +189,8 @@
         (let ((marker1 (point-marker)))
           (insert "* DONE Task 2\n")
           (let ((marker2 (point-marker))
-                (chime-keyword-blacklist '("DONE")))
-            (let ((result (chime--apply-blacklist (list marker1 marker2))))
+                (chime-exclude-filters `((keywords . ,'("DONE")))))
+            (let ((result (chime--apply-exclude-filters (list marker1 marker2))))
               (should (equal result '()))))))
     (test-chime-apply-blacklist-teardown)))
 
@@ -210,8 +204,8 @@
         (org-mode)
         (insert "* Entry without TODO keyword\n")
         (let ((marker1 (point-marker))
-              (chime-keyword-blacklist '("DONE")))
-          (let ((result (chime--apply-blacklist (list marker1))))
+              (chime-exclude-filters `((keywords . ,'("DONE")))))
+          (let ((result (chime--apply-exclude-filters (list marker1))))
             ;; Should keep marker with nil keyword (not in blacklist)
             (should (= (length result) 1)))))
     (test-chime-apply-blacklist-teardown)))
@@ -224,8 +218,8 @@
         (org-mode)
         (insert "* Entry without tags\n")
         (let ((marker1 (point-marker))
-              (chime-tags-blacklist '("archive")))
-          (let ((result (chime--apply-blacklist (list marker1))))
+              (chime-exclude-filters `((tags . ,'("archive")))))
+          (let ((result (chime--apply-exclude-filters (list marker1))))
             ;; Should keep marker with nil tags (not in blacklist)
             (should (= (length result) 1)))))
     (test-chime-apply-blacklist-teardown)))

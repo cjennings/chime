@@ -1,4 +1,4 @@
-;;; test-chime-apply-whitelist.el --- Tests for chime--apply-whitelist -*- lexical-binding: t; -*-
+;;; test-chime-apply-whitelist.el --- Tests for chime--apply-include-filters -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2024-2026 Craig Jennings
 
@@ -19,7 +19,7 @@
 
 ;;; Commentary:
 
-;; Unit tests for chime--apply-whitelist function.
+;; Unit tests for chime--apply-include-filters function.
 ;; Tests use real org-mode buffers with real org syntax.
 ;; Tests cover normal cases, boundary cases, and error cases.
 
@@ -36,16 +36,12 @@
   "Setup function run before each test."
   (chime-create-test-base-dir)
   ;; Reset whitelist settings
-  (setq chime-keyword-whitelist nil)
-  (setq chime-tags-whitelist nil)
-  (setq chime-predicate-whitelist nil))
+  (setq chime-include-filters nil))
 
 (defun test-chime-apply-whitelist-teardown ()
   "Teardown function run after each test."
   (chime-delete-test-base-dir)
-  (setq chime-keyword-whitelist nil)
-  (setq chime-tags-whitelist nil)
-  (setq chime-predicate-whitelist nil))
+  (setq chime-include-filters nil))
 
 ;;; Normal Cases
 
@@ -53,10 +49,9 @@
   "Test that nil whitelist returns all markers unchanged."
   (test-chime-apply-whitelist-setup)
   (unwind-protect
-      (let* ((chime-keyword-whitelist nil)
-             (chime-tags-whitelist nil)
+      (let* ((chime-include-filters nil)
              (markers (list (make-marker) (make-marker) (make-marker)))
-             (result (chime--apply-whitelist markers)))
+             (result (chime--apply-include-filters markers)))
         ;; Should return all markers when whitelist is nil
         (should (equal (length result) 3)))
     (test-chime-apply-whitelist-teardown)))
@@ -76,8 +71,8 @@
           (let ((marker2 (point-marker)))
             (forward-line 1)
             (let ((marker3 (point-marker))
-                  (chime-keyword-whitelist '("TODO")))
-              (let ((result (chime--apply-whitelist (list marker1 marker2 marker3))))
+                  (chime-include-filters `((keywords . ,'("TODO")))))
+              (let ((result (chime--apply-include-filters (list marker1 marker2 marker3))))
                 ;; Should only keep TODO markers
                 (should (= (length result) 2))
                 (should (member marker1 result))
@@ -100,8 +95,8 @@
           (let ((marker2 (point-marker)))
             (forward-line 1)
             (let ((marker3 (point-marker))
-                  (chime-tags-whitelist '("urgent")))
-              (let ((result (chime--apply-whitelist (list marker1 marker2 marker3))))
+                  (chime-include-filters `((tags . ,'("urgent")))))
+              (let ((result (chime--apply-include-filters (list marker1 marker2 marker3))))
                 ;; Should only keep markers with "urgent" tag
                 (should (= (length result) 2))
                 (should (member marker1 result))
@@ -124,9 +119,8 @@
           (let ((marker2 (point-marker)))
             (forward-line 1)
             (let ((marker3 (point-marker))
-                  (chime-keyword-whitelist '("TODO"))
-                  (chime-tags-whitelist '("urgent")))
-              (let ((result (chime--apply-whitelist (list marker1 marker2 marker3))))
+                  (chime-include-filters `((keywords . ,'("TODO")) (tags . ,'("urgent")))))
+              (let ((result (chime--apply-include-filters (list marker1 marker2 marker3))))
                 ;; Should keep marker1 (TODO) and marker3 (urgent tag)
                 (should (= (length result) 2))
                 (should (member marker1 result))
@@ -140,8 +134,8 @@
   "Test that empty markers list returns empty."
   (test-chime-apply-whitelist-setup)
   (unwind-protect
-      (let ((chime-keyword-whitelist '("TODO"))
-            (result (chime--apply-whitelist '())))
+      (let ((chime-include-filters `((keywords . ,'("TODO"))))
+            (result (chime--apply-include-filters '())))
         (should (equal result '())))
     (test-chime-apply-whitelist-teardown)))
 
@@ -157,8 +151,8 @@
         (let ((marker1 (point-marker)))
           (forward-line 1)
           (let ((marker2 (point-marker))
-                (chime-keyword-whitelist '("TODO")))
-            (let ((result (chime--apply-whitelist (list marker1 marker2))))
+                (chime-include-filters `((keywords . ,'("TODO")))))
+            (let ((result (chime--apply-include-filters (list marker1 marker2))))
               (should (= (length result) 1))
               (should (member marker1 result))))))
     (test-chime-apply-whitelist-teardown)))
@@ -175,8 +169,8 @@
         (let ((marker1 (point-marker)))
           (forward-line 1)
           (let ((marker2 (point-marker))
-                (chime-keyword-whitelist '("TODO")))
-            (let ((result (chime--apply-whitelist (list marker1 marker2))))
+                (chime-include-filters `((keywords . ,'("TODO")))))
+            (let ((result (chime--apply-include-filters (list marker1 marker2))))
               (should (equal result '()))))))
     (test-chime-apply-whitelist-teardown)))
 
@@ -191,8 +185,8 @@
         (insert "* Entry without TODO keyword\n")
         (goto-char (point-min))
         (let ((marker1 (point-marker))
-              (chime-keyword-whitelist '("TODO")))
-          (let ((result (chime--apply-whitelist (list marker1))))
+              (chime-include-filters `((keywords . ,'("TODO")))))
+          (let ((result (chime--apply-include-filters (list marker1))))
             ;; Should filter out marker with nil keyword (not in whitelist)
             (should (= (length result) 0)))))
     (test-chime-apply-whitelist-teardown)))
@@ -206,8 +200,8 @@
         (insert "* Entry without tags\n")
         (goto-char (point-min))
         (let ((marker1 (point-marker))
-              (chime-tags-whitelist '("urgent")))
-          (let ((result (chime--apply-whitelist (list marker1))))
+              (chime-include-filters `((tags . ,'("urgent")))))
+          (let ((result (chime--apply-include-filters (list marker1))))
             ;; Should filter out marker with nil tags (not in whitelist)
             (should (= (length result) 0)))))
     (test-chime-apply-whitelist-teardown)))

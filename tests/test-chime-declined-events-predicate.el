@@ -144,13 +144,15 @@ than treating it as declined."
     (let ((marker (point-marker)))
       (should-not (chime-declined-events-predicate marker)))))
 
-;;;; Integration with the default predicate-blacklist
+;;;; Integration with the default exclude filters
 
-(ert-deftest test-chime-declined-events-predicate-on-default-blacklist ()
-  "Normal: the predicate ships in the default `chime-predicate-blacklist'
-so out-of-the-box installs hide declined events without extra config."
+(ert-deftest test-chime-declined-events-predicate-on-default-exclude-filters ()
+  "Normal: the predicate ships in the default `chime-exclude-filters'
+under the predicates key, so out-of-the-box installs hide declined
+events without extra config."
   (should (memq 'chime-declined-events-predicate
-                (default-value 'chime-predicate-blacklist))))
+                (alist-get 'predicates
+                           (default-value 'chime-exclude-filters)))))
 
 (provide 'test-chime-declined-events-predicate)
 ;;; test-chime-declined-events-predicate.el ends here
