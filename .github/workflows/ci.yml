@@ -38,7 +38,7 @@ jobs:
         run: make test-all
 
   lint:
-    name: Lint (advisory)
+    name: Lint
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -56,18 +56,13 @@ jobs:
       - name: Install dependencies
         run: eask install-deps --dev
 
-      # Lint output is informational while the MELPA-prep backlog is being
-      # worked through. Tighten to required once that backlog is clear.
       - name: package-lint
-        continue-on-error: true
         run: eask lint package
 
       - name: checkdoc
-        continue-on-error: true
         run: eask lint checkdoc
 
       - name: elisp-lint
-        continue-on-error: true
         run: make lint
 
   coverage:
