@@ -1149,8 +1149,9 @@ Returns sorted, deduplicated list of (EVENT TIME-INFO MINUTES-UNTIL) tuples."
     (sort upcoming (lambda (a b) (< (nth 2 a) (nth 2 b))))))
 
 (defun chime--find-soonest-modeline-event (events now modeline-lookahead-minutes)
-  "Find soonest timed event for modeline from EVENTS within MODELINE-LOOKAHEAD-MINUTES.
-NOW is the current time.
+  "Find soonest timed event for modeline from EVENTS.
+NOW is the current time.  Search is limited to events within
+MODELINE-LOOKAHEAD-MINUTES of NOW.
 Returns (EVENT TIME-STR MINUTES-UNTIL EVENT-TEXT) or nil if none found."
   (let ((soonest-event nil)
         (soonest-event-text nil)
