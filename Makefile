@@ -90,13 +90,13 @@ setup:
 
 # Byte-compile chime.el — surfaces free-variable / unused-let / suspicious-call
 # warnings that checkdoc and elisp-lint don't catch.  byte-compile-error-on-warn
-# stays nil for now to match `make build' permissiveness; tighten once the
-# warning backlog is clear.
+# is t so any warning fails the build; the backlog is clear and we want to keep
+# it that way.
 compile:
 	@echo "[i] Byte-compiling $(SOURCE_FILE)..."
 	@$(EMACS_BATCH) \
 		--eval "(progn \
-		  (setq byte-compile-error-on-warn nil) \
+		  (setq byte-compile-error-on-warn t) \
 		  (batch-byte-compile))" $(SOURCE_FILE)
 	@echo "[✓] Compilation complete"
 
