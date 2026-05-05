@@ -262,7 +262,8 @@ running the async command to check notifications."
   :type '(repeat string))
 
 (defcustom chime-predicate-blacklist
-  '(chime-done-keywords-predicate)
+  '(chime-done-keywords-predicate
+    chime-declined-events-predicate)
   "Never receive notifications for events matching these predicates.
 Each function should take an event POM and return non-nil iff that event should
 not trigger a notification."
@@ -1279,6 +1280,14 @@ Combines keyword, tag, and custom predicate blacklists."
     (save-excursion
       (goto-char (marker-position marker))
       (member (nth 2 (org-heading-components)) org-done-keywords))))
+
+(defun chime-declined-events-predicate (marker)
+  "Return non-nil when entry at MARKER carries `:STATUS: declined'.
+This is the marker org-gcal writes for events the user has declined in
+their calendar.  Only the literal lowercase `declined' value is matched
+because that is what real org-gcal exports use."
+  (let ((status (org-entry-get marker "STATUS")))
+    (and status (string= status "declined"))))
 
 (defun chime--apply-whitelist (markers)
   "Apply whitelist to MARKERS."
