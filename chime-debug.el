@@ -45,8 +45,10 @@
 
 ;;; Code:
 
-;; chime-debug.el is loaded by chime.el, so chime is already loaded
-;; No need for (require 'chime) here
+;; chime-debug.el is loaded by chime.el at runtime, so a runtime
+;; `(require 'chime)' would be circular.  The byte-compiler is run with
+;; chime preloaded by the lint target (see `-l ../chime.el' in
+;; tests/Makefile's lint recipe) so cross-file symbols resolve there.
 
 ;;;###autoload
 (defun chime-debug-dump-events ()
@@ -178,7 +180,7 @@ This helps diagnose timing issues with event hydration after Emacs startup."
 (defun chime-debug-monitor-event-loading ()
   "Enable monitoring of event loading timing.
 Logs to *Messages* and sends libnotify notification when events are first
-loaded after Emacs startup. Useful for diagnosing hydration delays.
+loaded after Emacs startup.  Useful for diagnosing hydration delays.
 
 To enable:
   (setq chime-debug t)
@@ -224,7 +226,7 @@ To enable:
   "Warn if async process takes longer than this many seconds.")
 
 (defun chime--debug-log-async-start ()
-  "Log when an async check starts."
+  "Log the start of an async check."
   (setq chime--debug-async-check-count (1+ chime--debug-async-check-count))
   (setq chime--debug-async-start-time (current-time))
   (chime--log-silently "[Chime Async #%d] Starting event check at %s"
@@ -418,7 +420,8 @@ Shows loaded features before the check and logs async process details."
       (chime--log-silently "✗ Event is NOT within notification interval"))))
 
 (defun chime--debug-filter-check-pipeline (event event-time interval)
-  "Debug step: run full notification pipeline for EVENT with EVENT-TIME and INTERVAL."
+  "Debug step: run full notification pipeline for EVENT.
+EVENT-TIME and INTERVAL are passed through to the pipeline."
   (chime--log-silently "\n--- Step 4: chime--notifications (full pipeline) ---")
   (let* ((times (cdr (assoc 'times event)))
          (filtered-times (chime--filter-day-wide-events times))
@@ -442,7 +445,7 @@ Shows loaded features before the check and logs async process details."
 ;;;###autoload
 (defun chime-debug-notification-filtering (event-time interval)
   "Debug why a notification might not be generated for EVENT-TIME and INTERVAL.
-EVENT-TIME should be an Emacs time value (from encode-time or current-time).
+EVENT-TIME should be an Emacs time value (from `encode-time' or `current-time').
 INTERVAL is the number of minutes before the event to notify.
 
 Traces through the notification filtering pipeline step by step,

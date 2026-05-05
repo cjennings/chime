@@ -14,3 +14,5 @@
 /makefile-local
 /tests/makefile-local
 .claude/
+/chime-autoloads.el
+/tests/tests-autoloads.el

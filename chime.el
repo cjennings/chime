@@ -105,7 +105,7 @@ by your system's notification daemon."
                        (symbol :tag "Severity")))
   :set (lambda (symbol value)
          (unless (listp value)
-           (user-error "chime-alert-intervals must be a list of cons cells, got: %S" value))
+           (user-error "Chime-alert-intervals must be a list of cons cells, got: %S" value))
          (dolist (interval value)
            (unless (consp interval)
              (user-error "Each interval must be a cons cell (MINUTES . SEVERITY), got: %S" interval))
@@ -122,8 +122,8 @@ by your system's notification daemon."
 (defcustom chime-check-interval 60
   "How often to check for upcoming events, in seconds.
 Chime will poll your agenda files at this interval to check for
-notifications. Lower values make notifications more responsive but
-increase system load. Higher values reduce polling overhead but may
+notifications.  Lower values make notifications more responsive but
+increase system load.  Higher values reduce polling overhead but may
 delay notifications slightly.
 
 Minimum recommended value: 10 seconds.
@@ -247,7 +247,7 @@ Examples:
 (defcustom chime-predicate-whitelist nil
   "Receive notifications for events matching these predicates only.
 Each function should take an event POM and return non-nil iff that event should
-trigger a notification. Leave this variable blank if you do not want to filter
+trigger a notification.  Leave this variable blank if you do not want to filter
 anything."
   :package-version '(chime . "0.5.0")
   :group 'chime
@@ -384,7 +384,7 @@ The actual number of events shown is limited by
 
 Set to a larger value (e.g., 8760 for 1 year) to see distant events,
 or smaller (e.g., 24) for just today and tomorrow.
-Note: larger values increase the org-agenda-list span in the async
+Note: larger values increase the `org-agenda-list' span in the async
 subprocess, which may slow event checks for large org collections."
   :package-version '(chime . "0.6.0")
   :group 'chime
@@ -440,7 +440,7 @@ When non-nil, truncate titles longer than this value with \"...\".
 When nil, show full title without truncation.
 
 This affects ONLY the event title (%t in `chime-notification-text-format'),
-NOT the icon, time, or countdown. The icon is part of
+NOT the icon, time, or countdown.  The icon is part of
 `chime-modeline-format' and is added separately.
 
 Examples (assuming format \"%t (%u)\" and icon \" ⏰ \"):
@@ -514,7 +514,7 @@ supported by your system."
 This delay allows org-agenda-files and related infrastructure to finish
 loading before chime attempts to check for events.
 
-Default of 10 seconds works well for most configurations. Adjust if:
+Default of 10 seconds works well for most configurations.  Adjust if:
 - You have custom org-agenda-files setup that takes longer to initialize
 - You want faster startup (reduce to 5) and know org is ready
 - You see \"found 0 events\" messages (increase to 15 or 20)
@@ -526,7 +526,7 @@ org-agenda-files is populated at startup)."
   :type 'integer
   :set (lambda (symbol value)
          (unless (and (integerp value) (>= value 0))
-           (user-error "chime-startup-delay must be a non-negative integer, got: %s" value))
+           (user-error "Chime-startup-delay must be a non-negative integer, got: %s" value))
          (set-default symbol value)))
 
 (defcustom chime-max-consecutive-failures 5
@@ -595,11 +595,11 @@ Each event includes marker, title, times, and intervals.")
 (defvar chime--validation-done nil
   "Whether configuration validation has been performed.
 Validation runs on the first call to `chime-check', after `chime-startup-delay'
-has elapsed. This gives startup hooks time to populate org-agenda-files.")
+has elapsed.  This gives startup hooks time to populate org-agenda-files.")
 
 (defvar chime--validation-retry-count 0
   "Number of times validation has failed and been retried.
-Reset to 0 when validation succeeds. Used to provide graceful retry
+Reset to 0 when validation succeeds.  Used to provide graceful retry
 behavior for users with async org-agenda-files initialization.")
 
 (defcustom chime-validation-max-retries 3
@@ -974,8 +974,8 @@ TITLE is the event title."
 (defun chime--day-label-for-event-time (event-time now tomorrow)
   "Return the date-group label for EVENT-TIME.
 NOW is the reference \"now\" time (typically `current-time') and
-TOMORROW is NOW plus 24 hours. When EVENT-TIME falls on the same
-calendar day as NOW, returns \"Today, <Mon DD>\". When it falls on the
+TOMORROW is NOW plus 24 hours.  When EVENT-TIME falls on the same
+calendar day as NOW, returns \"Today, <Mon DD>\".  When it falls on the
 same calendar day as TOMORROW, returns \"Tomorrow, <Mon DD>\".
 Otherwise returns the full weekday and date, e.g. \"Wednesday, Nov 05\"."
   (let ((event-decoded (decode-time event-time))
@@ -1639,8 +1639,8 @@ SEVERITY is one of: :error :warning :info
 Checks performed:
 - org-agenda-files is set and non-empty
 - org-agenda-files exist on disk
-- org-agenda package is loadable
-- global-mode-string available (for modeline display)
+- `org-agenda' package is loadable
+- `global-mode-string' available (for modeline display)
 
 When called interactively, displays results via message/warning system.
 When called programmatically, returns structured validation results."
@@ -1652,7 +1652,7 @@ When called programmatically, returns structured validation results."
                  org-agenda-files
                  (listp org-agenda-files)
                  (> (length org-agenda-files) 0))
-      (push '(:error "org-agenda-files is not set or empty.\nChime cannot check for events without org files to monitor.\n\nSet org-agenda-files in your config:\n  (setq org-agenda-files '(\"~/org/inbox.org\" \"~/org/work.org\"))")
+      (push '(:error "Org-agenda-files is not set or empty.\nChime cannot check for events without org files to monitor.\n\nSet org-agenda-files in your config:\n  (setq org-agenda-files '(\"~/org/inbox.org\" \"~/org/work.org\"))")
             issues))
 
     ;; Warning: Check if files/directories actually exist
@@ -1672,7 +1672,7 @@ When called programmatically, returns structured validation results."
 
     ;; Check org-agenda is loadable
     (unless (require 'org-agenda nil t)
-      (push '(:error "Cannot load org-agenda.\nEnsure org-mode is installed and available in load-path.")
+      (push '(:error "Cannot load org-agenda\nEnsure org-mode is installed and available in load-path")
             issues))
 
     ;; Check modeline support (if enabled)
@@ -1751,7 +1751,7 @@ reaches `chime-max-consecutive-failures'.  Only warns once at the threshold."
      :warning)))
 
 (defun chime--record-async-failure (err prefix)
-  "Record an async failure ERR. PREFIX names the failure category in the log.
+  "Record an async failure ERR.  PREFIX names the failure category in the log.
 Increments the consecutive-failure counter, sends a debug log when the
 debug module is loaded, writes a silent log line, may emit the
 persistent-failure warning, and switches the modeline to its error state."
@@ -1763,7 +1763,7 @@ persistent-failure warning, and switches the modeline to its error state."
   (chime--set-modeline-error-state "Event check failed — check *Messages* buffer"))
 
 (defun chime--handle-async-success (callback events)
-  "Process a successful async fetch. Invoke CALLBACK with EVENTS.
+  "Process a successful async fetch.  Invoke CALLBACK with EVENTS.
 Resets the consecutive-failure counter and sends a debug-completion log
 when the debug module is loaded."
   (setq chime--consecutive-async-failures 0)

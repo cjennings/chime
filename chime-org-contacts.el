@@ -27,7 +27,7 @@
 ;; Optional org-contacts integration for chime.el
 ;;
 ;; This module provides an org-capture template that automatically inserts
-;; birthday timestamps when creating new contacts. This complements the
+;; birthday timestamps when creating new contacts.  This complements the
 ;; chime conversion script (convert-org-contacts-birthdays.el) which handles
 ;; existing contacts.
 ;;
@@ -39,7 +39,7 @@
 ;; - Automatically insert yearly repeating timestamps for birthdays
 ;; - Enable birthdays to appear in org-agenda without org-contacts loaded
 ;;
-;; The integration is disabled by default. Set `chime-org-contacts-file'
+;; The integration is disabled by default.  Set `chime-org-contacts-file'
 ;; to enable it.
 
 ;;; Code:
@@ -59,9 +59,9 @@
 
 When nil, org-contacts capture integration is disabled.
 
-When set to a file path, chime will add an org-capture template
+When set to a file path, chime will add an `org-capture' template
 that automatically inserts birthday timestamps for new contacts,
-enabling them to appear in org-agenda without requiring org-contacts
+enabling them to appear in `org-agenda' without requiring org-contacts
 to be loaded in the async subprocess.
 
 Example:
@@ -73,7 +73,7 @@ Example:
 (defcustom chime-org-contacts-capture-key "C"
   "Key binding for chime org-contacts capture template.
 
-This is the key you press after invoking org-capture (C-c c by default).
+This is the key you press after invoking `org-capture' (C-c c by default).
 Change this if you already have a capture template using \"C\"."
   :type 'string
   :group 'chime-org-contacts)
@@ -94,8 +94,8 @@ New contacts will be filed under this heading in `chime-org-contacts-file'."
 (defun chime-org-contacts--finalize-birthday-timestamp ()
   "Add yearly repeating timestamp after properties drawer if BIRTHDAY is set.
 
-This function is called during org-capture finalization to automatically
-insert a plain timestamp for birthdays, enabling them to appear in org-agenda
+This function is called during `org-capture' finalization to automatically
+insert a plain timestamp for birthdays, enabling them to appear in `org-agenda'
 without requiring org-contacts to be loaded in the async subprocess.
 
 Delegates to `chime--insert-birthday-timestamp-after-drawer' for the
@@ -110,7 +110,7 @@ actual parsing, formatting, and insertion."
             (user-error nil)))))))
 
 (defun chime-org-contacts--setup-capture-template ()
-  "Add org-capture template for contacts with birthday timestamps.
+  "Add `org-capture' template for contacts with birthday timestamps.
 
 This template will only be added if:
 1. `chime-org-contacts-file' is set

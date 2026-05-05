@@ -221,13 +221,34 @@ validate:
 		exit 1; \
 	fi
 
-# Comprehensive linting with elisp-lint (via eask-installed dev dep)
+# Comprehensive linting with elisp-lint (via eask-installed dev dep).
+# Scope: package files only.  Tests don't pass package-lint (they aren't
+# standalone packages).
+# Validators disabled and why:
+# - checkdoc: covered by `eask lint checkdoc' as its own MELPA-prep step.
+# - package-lint: covered by `eask lint package' as its own step; running it
+#   here re-flags the auxiliary files because they no longer carry their own
+#   Package-Requires.
+# - indent-character: project uses spaces (per `.claude/rules/elisp.md');
+#   the validator defaults to requiring tabs.
+# - fill-column: project allows up to 80 columns; the validator defaults to 70.
+# - indent: produces false positives on dash threading macros (`->', `->>')
+#   whose indentation rule the validator doesn't know.  Real indent bugs
+#   are caught by check-parens and review.
 lint: check-deps
 	@printf "$(YELLOW)Running elisp-lint...$(NC)\n"
-	@$(EMACS_BATCH) --eval "(require 'elisp-lint)" \
+	@$(EMACS_BATCH) \
+		-l $(PROJECT_ROOT)/chime.el \
+		--eval "(require 'elisp-lint)" \
 		-f elisp-lint-files-batch \
 		--no-checkdoc \
-		../chime.el test-*.el testutil-*.el 2>&1; \
+		--no-package-lint \
+		--no-indent-character \
+		--no-fill-column \
+		--no-indent \
+		$(PROJECT_ROOT)/chime.el \
+		$(PROJECT_ROOT)/chime-debug.el \
+		$(PROJECT_ROOT)/chime-org-contacts.el 2>&1; \
 	if [ $$? -eq 0 ]; then \
 		printf "$(GREEN)✓ Linting completed successfully$(NC)\n"; \
 	else \
