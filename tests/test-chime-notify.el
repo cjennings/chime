@@ -38,7 +38,6 @@
   (setq chime-notification-title "Agenda")
   (setq chime-notification-icon nil)
   (setq chime-extra-alert-plist nil)
-  (setq chime-play-sound t)
   ;; Use a simple test path for sound file
   (setq chime-sound-file "/tmp/test-chime.wav"))
 
@@ -55,7 +54,7 @@
       (let ((sound-played nil)
             (alert-called nil)
             (alert-message nil))
-        (cl-letf* ((chime-play-sound t)
+        (cl-letf* (
                    (chime-sound-file (expand-file-name "test-sound.wav" chime-test-base-dir))
                    ;; Mock file-exists-p to return t
                    ((symbol-function 'file-exists-p) (lambda (file) t))
@@ -82,7 +81,7 @@
   (unwind-protect
       (let ((beep-called nil)
             (alert-called nil))
-        (cl-letf* ((chime-play-sound t)
+        (cl-letf* (
                    (chime-sound-file nil)
                    ;; Mock beep to track if called
                    ((symbol-function 'beep)
@@ -97,34 +96,12 @@
           (should alert-called)))
     (test-chime-notify-teardown)))
 
-(ert-deftest test-chime-notify-no-sound-when-disabled ()
-  "Test that no sound is played when chime-play-sound is nil."
-  (test-chime-notify-setup)
-  (unwind-protect
-      (let ((sound-played nil)
-            (beep-called nil)
-            (alert-called nil))
-        (cl-letf* ((chime-play-sound nil)
-                   ((symbol-function 'play-sound-file)
-                    (lambda (file) (setq sound-played t)))
-                   ((symbol-function 'beep)
-                    (lambda () (setq beep-called t)))
-                   ((symbol-function 'alert)
-                    (lambda (msg &rest args) (setq alert-called t))))
-          (chime--notify "Daily Standup")
-          ;; Should NOT play sound or beep
-          (should-not sound-played)
-          (should-not beep-called)
-          ;; Should still show alert
-          (should alert-called)))
-    (test-chime-notify-teardown)))
-
 (ert-deftest test-chime-notify-passes-correct-parameters-to-alert ()
   "Test that alert is called with correct parameters."
   (test-chime-notify-setup)
   (unwind-protect
       (let ((alert-params nil))
-        (cl-letf* ((chime-play-sound nil)
+        (cl-letf* (
                    (chime-notification-title "Custom Title")
                    (chime-notification-icon "/path/to/icon.png")
                    (chime-extra-alert-plist '(:persistent t))
@@ -150,7 +127,7 @@
   (unwind-protect
       (let ((alert-called nil)
             (alert-message nil))
-        (cl-letf* ((chime-play-sound nil)
+        (cl-letf* (
                    ((symbol-function 'alert)
                     (lambda (msg &rest args)
                       (setq alert-called t)
@@ -167,7 +144,7 @@
   (unwind-protect
       (let ((sound-played nil)
             (alert-called nil))
-        (cl-letf* ((chime-play-sound t)
+        (cl-letf* (
                    (chime-sound-file "/nonexistent/path/sound.wav")
                    ;; Mock file-exists-p to return nil
                    ((symbol-function 'file-exists-p) (lambda (file) nil))
@@ -189,7 +166,7 @@
   (test-chime-notify-setup)
   (unwind-protect
       (let ((alert-called nil))
-        (cl-letf* ((chime-play-sound t)
+        (cl-letf* (
                    (chime-sound-file "/some/file.wav")
                    ;; Mock file-exists-p to return t
                    ((symbol-function 'file-exists-p) (lambda (file) t))
@@ -211,7 +188,7 @@
   (test-chime-notify-setup)
   (unwind-protect
       (let ((alert-called nil))
-        (cl-letf* ((chime-play-sound t)
+        (cl-letf* (
                    (chime-sound-file nil)
                    ;; Mock beep to throw error
                    ((symbol-function 'beep)
@@ -231,7 +208,7 @@
   (test-chime-notify-setup)
   (unwind-protect
       (let ((alert-called nil))
-        (cl-letf* ((chime-play-sound nil)
+        (cl-letf* (
                    ((symbol-function 'alert)
                     (lambda (msg &rest args) (setq alert-called t))))
           ;; Should not error with nil message

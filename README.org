@@ -68,8 +68,8 @@ The quickest way to try it out:
   ;; Notify 5 minutes before (medium urgency) and at event time (high urgency)
   (setq chime-alert-intervals '((5 . medium) (0 . high)))
 
-  ;; Chime sound
-  (setq chime-play-sound t)
+  ;; Chime sound (set to nil to disable, or to a path for a custom sound)
+  ;; (setq chime-sound-file nil)
 
   ;; Modeline display (see "Modeline Display" section for more options)
   (setq chime-enable-modeline t)
@@ -211,8 +211,8 @@ Severity levels (=high=, =medium=, =low=) are passed to [[https://github.com/jwi
 Control the audible chime that plays when notifications appear:
 
 #+BEGIN_SRC elisp
-  ;; Enable/disable the bundled chime sound (default: t)
-  (setq chime-play-sound t)
+  ;; Disable sound entirely
+  (setq chime-sound-file nil)
 
   ;; Use your own custom sound file
   (setq chime-sound-file "/path/to/your/chime.wav")
@@ -826,9 +826,8 @@ If you have custom variables that need to be available in chime's async subproce
     ;; Alert intervals: 5 minutes before (medium) and at event time (high)
     (setq chime-alert-intervals '((5 . medium) (0 . high)))
 
-    ;; Chime sound
-    (setq chime-play-sound t)
-    ;; Uses bundled chime.wav by default
+    ;; Chime sound — uses bundled chime.wav by default
+    ;; (setq chime-sound-file nil) to disable
 
     ;; Modeline display - compact format
     (setq chime-enable-modeline t)
@@ -1033,7 +1032,7 @@ It also monitors event loading timing and async process performance in the backg
 
 *** No Sound Playing
 
-1. Verify sound is enabled: =M-: chime-play-sound= should return =t=
+1. Verify a sound file is configured: =M-: chime-sound-file= should return a path (not nil)
 2. Check sound file exists: =M-: (file-exists-p chime-sound-file)=
 3. Test sound directly: =M-: (play-sound-file chime-sound-file)=
 4. Ensure your system has audio support configured

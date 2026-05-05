@@ -516,13 +516,6 @@ Result: \"Upcoming Events as of Tue Nov 04 2025 @ 08:25 PM\""
   :group 'chime
   :type 'string)
 
-(defcustom chime-play-sound t
-  "Whether to play a sound when notifications are displayed.
-When non-nil, plays the sound file specified in `chime-sound-file'."
-  :package-version '(chime . "0.6.0")
-  :group 'chime
-  :type 'boolean)
-
 (defcustom chime-sound-file
   (expand-file-name "sounds/chime.wav"
                     (file-name-directory
@@ -1421,8 +1414,8 @@ MSG-SEVERITY is a cons cell (MESSAGE . SEVERITY) where MESSAGE is the
 notification text and SEVERITY is one of high, medium, or low."
   (let* ((event-msg (if (consp msg-severity) (car msg-severity) msg-severity))
          (severity (if (consp msg-severity) (cdr msg-severity) 'medium)))
-    ;; Play sound if enabled and sound file is specified
-    (when (and chime-play-sound chime-sound-file)
+    ;; Play sound if a file is configured (set chime-sound-file to nil to disable)
+    (when chime-sound-file
       (condition-case err
           (when (file-exists-p chime-sound-file)
             (play-sound-file chime-sound-file))
