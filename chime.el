@@ -1079,27 +1079,36 @@ Left-click opens calendar URL (if set), right-click jumps to event."
                   'local-map map))))
 
 (defun chime--deduplicate-events-by-title (upcoming-events)
-  "Deduplicate UPCOMING-EVENTS by title, keeping soonest occurrence.
+  "Collapse UPCOMING-EVENTS that come from the same source heading.
 
 UPCOMING-EVENTS should be a list where each element is
-\(EVENT TIME-INFO MINUTES).
-Returns a new list with only the soonest occurrence of each
-unique title.
+\(EVENT TIME-INFO MINUTES).  Returns a new list with one entry per
+source heading, keeping the soonest occurrence.
 
-This prevents recurring events from appearing multiple times in
-the tooltip when `org-agenda-list' expands them into separate
-event objects."
-  (let ((title-hash (make-hash-table :test 'equal)))
+The dedup key is the heading's marker (`marker-file' + `marker-pos'
+on the event alist) so two distinct headings sharing a display title
+both survive — for example, two separate \"1:1\" entries on different
+days.  When marker info is missing (typically synthesized test events),
+the key falls back to the title so older callers and fixtures keep
+working.
+
+The function still earns its keep against `org-agenda-list', which
+expands a recurring entry into multiple instances all sharing one
+marker; those collapse to a single soonest tooltip line."
+  (let ((id-hash (make-hash-table :test 'equal)))
     (dolist (item upcoming-events)
       (let* ((event (car item))
-             (title (cdr (assoc 'title event)))
              (minutes (caddr item))
-             (existing (gethash title title-hash)))
-        ;; Only keep if this is the first occurrence or soonest so far
+             (marker-file (cdr (assoc 'marker-file event)))
+             (marker-pos (cdr (assoc 'marker-pos event)))
+             (key (if (and marker-file marker-pos)
+                      (cons marker-file marker-pos)
+                    (cdr (assoc 'title event))))
+             (existing (gethash key id-hash)))
         (when (or (not existing)
                   (< minutes (caddr existing)))
-          (puthash title item title-hash))))
-    (hash-table-values title-hash)))
+          (puthash key item id-hash))))
+    (hash-table-values id-hash)))
 
 (defun chime--find-soonest-time-in-window (times now lookahead-minutes)
   "Find soonest time from TIMES list within LOOKAHEAD-MINUTES from NOW.

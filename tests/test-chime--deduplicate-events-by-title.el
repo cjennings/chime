@@ -47,6 +47,15 @@ Returns format: (EVENT TIME-INFO MINUTES)"
         '("dummy-time-string" . nil)  ; TIME-INFO (not used in deduplication)
         minutes))
 
+(defun test-make-upcoming-item-with-source (title minutes file pos)
+  "Build an upcoming-events item carrying source-heading identity.
+TITLE / MINUTES match `test-make-upcoming-item'; FILE and POS attach
+`marker-file' and `marker-pos' to the event alist so the dedup key
+can use heading identity instead of title."
+  (list `((title . ,title) (marker-file . ,file) (marker-pos . ,pos))
+        '("dummy-time-string" . nil)
+        minutes))
+
 ;;; Normal Cases
 
 (ert-deftest test-chime--deduplicate-events-by-title-normal-recurring-daily-keeps-soonest ()
@@ -182,6 +191,50 @@ One instance should be kept."
   "Test that nil input returns empty list."
   (let ((result (chime--deduplicate-events-by-title nil)))
     (should (null result))))
+
+;;; Source-heading Cases (distinct headings with shared title)
+
+(ert-deftest test-chime--deduplicate-events-by-title-distinct-headings-same-title-both-kept ()
+  "Two events that share a title but live at different markers must both
+survive the dedup pass.  Recurring-event collapse keys off the source
+heading (file + position), not the user-facing title."
+  (let* ((events (list
+                  (test-make-upcoming-item-with-source
+                   "1:1" 30 "/work.org" 100)
+                  (test-make-upcoming-item-with-source
+                   "1:1" 60 "/work.org" 500)))
+         (result (chime--deduplicate-events-by-title events)))
+    (should (= 2 (length result)))))
+
+(ert-deftest test-chime--deduplicate-events-by-title-recurring-same-marker-collapsed ()
+  "Multiple expansions of one recurring entry share the same marker
+and should still collapse to the soonest occurrence."
+  (let* ((events (list
+                  (test-make-upcoming-item-with-source
+                   "Standup" 60 "/work.org" 100)
+                  (test-make-upcoming-item-with-source
+                   "Standup" 1500 "/work.org" 100)
+                  (test-make-upcoming-item-with-source
+                   "Standup" 2940 "/work.org" 100)))
+         (result (chime--deduplicate-events-by-title events)))
+    (should (= 1 (length result)))
+    (should (= 60 (caddr (car result))))))
+
+(ert-deftest test-chime--deduplicate-events-by-title-mixed-source-and-title-fallback ()
+  "Sourced and unsourced events coexist: sourced ones key off the marker,
+unsourced ones still collapse by title."
+  (let* ((events (list
+                  ;; Two distinct headings sharing a title
+                  (test-make-upcoming-item-with-source
+                   "Sync" 30 "/a.org" 100)
+                  (test-make-upcoming-item-with-source
+                   "Sync" 90 "/b.org" 200)
+                  ;; Test event without marker info — fallback to title
+                  (test-make-upcoming-item "Standalone" 45)
+                  (test-make-upcoming-item "Standalone" 600)))
+         (result (chime--deduplicate-events-by-title events)))
+    ;; Two Syncs (distinct headings) plus one Standalone (title-collapsed)
+    (should (= 3 (length result)))))
 
 (provide 'test-chime--deduplicate-events-by-title)
 ;;; test-chime--deduplicate-events-by-title.el ends here
