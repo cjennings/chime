@@ -107,6 +107,7 @@ Components integrated:
 - chime-check (async wrapper around event gathering)
 - chime--gather-info (extracts event details)
 - chime--update-modeline (updates modeline display)"
+  :tags '(:slow)
   (with-startup-config
     (let* ((now (test-time-now))
            ;; Create events at various times
@@ -181,6 +182,7 @@ Validates that chime-validate-configuration returns nil (no issues) when:
 - All other dependencies are available
 
 This ensures the startup validation doesn't block legitimate configurations."
+  :tags '(:slow)
   (with-startup-config
     (let ((content "#+TITLE: Minimal Test\n\n* TODO Test event\nSCHEDULED: <2025-12-01 Mon 10:00>\n"))
       ;; Create minimal org file
@@ -205,6 +207,7 @@ When validation fails on first check, chime-check should:
 - NOT proceed to event gathering
 
 This validates the early-return mechanism works correctly."
+  :tags '(:slow)
   (with-startup-config
     ;; Set up invalid configuration (empty org-agenda-files)
     (setq org-agenda-files nil)
@@ -239,6 +242,7 @@ This validates the early-return mechanism works correctly."
 
 Boundary case: org-agenda-files with only one event.
 Validates that the gathering and modeline logic work with minimal data."
+  :tags '(:slow)
   (with-startup-config
     (let* ((now (test-time-now))
            (event-time (test-time-at 0 1 0))  ; 1 hour from now
@@ -266,6 +270,7 @@ Validates that the gathering and modeline logic work with minimal data."
 
 Boundary case: Events exist but are far in the future (beyond lookahead window).
 Validates that chime doesn't error and modeline shows appropriate state."
+  :tags '(:slow)
   (with-startup-config
     (let* ((now (test-time-now))
            ;; Event 30 days from now (beyond 24-hour lookahead)

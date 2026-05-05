@@ -36,6 +36,7 @@
 
 (ert-deftest test-integration-chime-mode-enable-adds-to-global-mode-string ()
   "Enabling chime-mode should add chime-modeline-string to global-mode-string."
+  :tags '(:slow)
   (let ((chime-enable-modeline t)
         (chime-modeline-lookahead-minutes 60))
     (unwind-protect
@@ -47,6 +48,7 @@
 (ert-deftest test-integration-chime-mode-disable-removes-from-global-mode-string ()
   "Disabling chime-mode should remove chime-modeline-string from global-mode-string
 and set it to nil."
+  :tags '(:slow)
   (let ((chime-enable-modeline t)
         (chime-modeline-lookahead-minutes 60))
     (chime-mode 1)
@@ -56,6 +58,7 @@ and set it to nil."
 
 (ert-deftest test-integration-chime-mode-disable-nils-timer ()
   "Disabling chime-mode should set chime--timer to nil."
+  :tags '(:slow)
   (let ((chime-enable-modeline t)
         (chime-modeline-lookahead-minutes 60))
     (chime-mode 1)
@@ -68,6 +71,7 @@ and set it to nil."
 (ert-deftest test-integration-chime-mode-enable-sets-modeline-string-immediately ()
   "Enabling chime-mode should set chime-modeline-string to a non-nil value
 immediately, before the first async check completes."
+  :tags '(:slow)
   (let ((chime-enable-modeline t)
         (chime-modeline-lookahead-minutes 120)
         (chime-modeline-no-events-text " ⏰"))
@@ -81,6 +85,7 @@ immediately, before the first async check completes."
 
 (ert-deftest test-integration-chime-mode-enable-immediate-string-has-tooltip ()
   "The immediate modeline string should have a help-echo tooltip."
+  :tags '(:slow)
   (let ((chime-enable-modeline t)
         (chime-modeline-lookahead-minutes 120)
         (chime-modeline-no-events-text " ⏰"))
@@ -93,6 +98,7 @@ immediately, before the first async check completes."
 (ert-deftest test-integration-chime-mode-validation-failure-keeps-icon-visible ()
   "When validation fails, modeline should still show the icon with error info
 in the tooltip, not go blank."
+  :tags '(:slow)
   (let ((chime-enable-modeline t)
         (chime-modeline-lookahead-minutes 120)
         (chime-modeline-no-events-text " ⏰")

@@ -148,6 +148,7 @@ Validates:
 - Recurring event expanded 365 times is deduplicated to one entry
 - Tooltip shows event title exactly once
 - The shown occurrence is the soonest one"
+  :tags '(:slow)
   (test-integration-recurring-setup)
   (unwind-protect
       (let* ((now (test-time-now))
@@ -207,6 +208,7 @@ Components integrated:
 Validates:
 - Weekly recurring events are deduplicated correctly
 - Tooltip shows only soonest occurrence"
+  :tags '(:slow)
   (test-integration-recurring-setup)
   (unwind-protect
       (let* ((now (test-time-now))
@@ -253,6 +255,7 @@ Validates:
 - Recurring event appears once
 - Non-recurring events all appear
 - Total count is correct (recurring deduplicated, others preserved)"
+  :tags '(:slow)
   (test-integration-recurring-setup)
   (unwind-protect
       (let* ((now (test-time-now))
@@ -320,6 +323,7 @@ Validates:
 - Each recurring event title appears exactly once
 - Different recurring frequencies handled correctly
 - Deduplication works independently for each title"
+  :tags '(:slow)
   (test-integration-recurring-setup)
   (unwind-protect
       (let* ((now (test-time-now))

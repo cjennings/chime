@@ -71,7 +71,7 @@ test-all: check-deps
 	for testfile in $(ALL_TESTS); do \
 		echo "  Testing $$testfile..."; \
 		$(EMACS_BATCH) -l ert -l "$$testfile" \
-			--eval '(ert-run-tests-batch-and-exit)' || failed=$$((failed + 1)); \
+			--eval '(ert-run-tests-batch-and-exit t)' || failed=$$((failed + 1)); \
 	done; \
 	if [ $$failed -eq 0 ]; then \
 		printf "$(GREEN)[✓] All tests passed$(NC)\n"; \
