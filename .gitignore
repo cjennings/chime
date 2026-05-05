@@ -9,3 +9,7 @@
 *.elc
 *.eln
 /inbox/
+/.eask/
+/.coverage/
+/makefile-local
+/tests/makefile-local

@@ -1,6 +1,7 @@
 # Makefile for chime.el test suite
 # Usage:
-#   make test              - Run all tests
+#   make test              - Run all tests (excluding :slow tagged)
+#   make test-all          - Run every test, including :slow tagged
 #   make test-file FILE=overdue - Run tests in one file
 #   make test-one TEST=name     - Run one specific test
 #   make test-unit         - Run unit tests only
@@ -8,148 +9,167 @@
 #   make clean             - Remove byte-compiled files
 
 # Configuration
-EMACS ?= emacs
-EMACSFLAGS = --batch -Q
-TESTFLAGS = -l ert
+EASK ?= eask
 
-# Dependency paths (adjust if needed)
-ELPA_DIR = $(HOME)/.emacs.d/elpa
-DASH_DIR = $(shell find $(ELPA_DIR) -maxdepth 1 -name 'dash-*' -type d 2>/dev/null | head -1)
-ALERT_DIR = $(shell find $(ELPA_DIR) -maxdepth 1 -name 'alert-*' -type d 2>/dev/null | head -1)
-ASYNC_DIR = $(shell find $(ELPA_DIR) -maxdepth 1 -name 'async-*' -type d 2>/dev/null | head -1)
+# eask treats the CWD as its workspace and reads .eask/ from there.  All
+# eask invocations must run from project root so the project's .eask/
+# is picked up.  The (cd "tests/") --eval restores Emacs default-directory
+# so test files' relative paths (../chime.el, test-bootstrap.el) resolve
+# the way they did under the old plain-emacs setup.
+PROJECT_ROOT := $(abspath ..)
+EMACS_BATCH = cd $(PROJECT_ROOT) && $(EASK) emacs --batch --eval '(cd "tests/")'
 
-# Build load path
-LOADPATH = -L $(DASH_DIR) -L $(ALERT_DIR) -L $(ASYNC_DIR)
+# Include local overrides if present (per-machine knobs, not committed)
+-include makefile-local
 
 # Test files
 ALL_TESTS = $(filter-out test-bootstrap.el,$(wildcard test-*.el))
 UNIT_TESTS = $(filter-out test-integration-%.el,$(ALL_TESTS))
 INTEGRATION_TESTS = $(wildcard test-integration-*.el)
 
+# ERT selector that excludes tests tagged :slow.  Applied to default
+# test runs so a slow integration suite doesn't dominate the fast
+# feedback path.  test-all runs everything; test-one and test-name
+# honor the user-supplied pattern verbatim.
+ERT_FAST_SELECTOR = (ert-run-tests-batch-and-exit '(not (tag :slow)))
+
 # Colors for output (if terminal supports it)
 RED = \033[0;31m
 GREEN = \033[0;32m
 YELLOW = \033[1;33m
-NC = \033[0m # No Color
+NC = \033[0m
 
-.PHONY: all test test-file test-one test-name test-unit test-integration validate lint clean help check-deps
+.PHONY: all test test-all test-file test-one test-name test-unit test-integration validate lint clean help check-deps
 
-# Default target
 all: test
 
-# Check if dependencies are available
+# Verify eask + installed deps are available
 check-deps:
-	@if [ -z "$(DASH_DIR)" ]; then \
-		echo "$(RED)Error: dash package not found in $(ELPA_DIR)$(NC)"; \
+	@if ! command -v $(EASK) >/dev/null 2>&1; then \
+		printf "$(RED)Error: eask not found on PATH$(NC)\n"; \
+		echo "Install:  npm install -g @emacs-eask/cli"; \
+		echo "    or:   https://emacs-eask.github.io/Getting-Started/Install-Eask/"; \
 		exit 1; \
 	fi
-	@if [ -z "$(ALERT_DIR)" ]; then \
-		echo "$(RED)Error: alert package not found in $(ELPA_DIR)$(NC)"; \
+	@if [ ! -d $(PROJECT_ROOT)/.eask ]; then \
+		printf "$(YELLOW)Warning: .eask not found — run 'make setup' from project root$(NC)\n"; \
 		exit 1; \
 	fi
-	@if [ -z "$(ASYNC_DIR)" ]; then \
-		echo "$(RED)Error: async package not found in $(ELPA_DIR)$(NC)"; \
-		exit 1; \
-	fi
-	@echo "$(GREEN)✓ All dependencies found$(NC)"
+	@printf "$(GREEN)✓ eask available, deps installed$(NC)\n"
 
-# Run all tests
+# Run all tests (excluding :slow)
 test: check-deps
-	@echo "$(YELLOW)Running all tests ($(words $(ALL_TESTS)) files)...$(NC)"
+	@printf "$(YELLOW)Running all tests ($(words $(ALL_TESTS)) files, excluding :slow)...$(NC)\n"
 	@$(MAKE) --no-print-directory test-unit
 	@$(MAKE) --no-print-directory test-integration
-	@echo "$(GREEN)[✓] All tests complete$(NC)"
+	@printf "$(GREEN)[✓] All tests complete$(NC)\n"
+
+# Run every test, including :slow tagged
+test-all: check-deps
+	@printf "$(YELLOW)Running all tests including :slow ($(words $(ALL_TESTS)) files)...$(NC)\n"
+	@failed=0; \
+	for testfile in $(ALL_TESTS); do \
+		echo "  Testing $$testfile..."; \
+		$(EMACS_BATCH) -l ert -l "$$testfile" \
+			--eval '(ert-run-tests-batch-and-exit)' || failed=$$((failed + 1)); \
+	done; \
+	if [ $$failed -eq 0 ]; then \
+		printf "$(GREEN)[✓] All tests passed$(NC)\n"; \
+	else \
+		printf "$(RED)[✗] $$failed test file(s) failed$(NC)\n"; \
+		exit 1; \
+	fi
 
 # Run tests in one file
 test-file: check-deps
 ifndef FILE
-	@echo "$(RED)Error: FILE not specified$(NC)"
+	@printf "$(RED)Error: FILE not specified$(NC)\n"
 	@echo "Usage: make test-file FILE=overdue"
 	@echo "       make test-file FILE=test-chime-overdue-todos.el"
 	@exit 1
 endif
-	@TESTFILE=$$(find . -maxdepth 1 -name "*$(FILE)*.el" -type f | head -1); \
+	@TESTFILE=$$(find . -maxdepth 1 -name "*$(FILE)*.el" -type f | head -1 | sed 's|^\./||'); \
 	if [ -z "$$TESTFILE" ]; then \
-		echo "$(RED)Error: No test file matching '$(FILE)' found$(NC)"; \
+		printf "$(RED)Error: No test file matching '$(FILE)' found$(NC)\n"; \
 		exit 1; \
 	fi; \
-	echo "$(YELLOW)Running tests in $$TESTFILE...$(NC)"; \
-	$(EMACS) $(EMACSFLAGS) $(LOADPATH) $(TESTFLAGS) -l "$$TESTFILE" \
-		--eval '(ert-run-tests-batch-and-exit)' 2>&1 | tee test-file-output.log; \
+	printf "$(YELLOW)Running tests in $$TESTFILE...$(NC)\n"; \
+	$(EMACS_BATCH) -l ert -l "$$TESTFILE" \
+		--eval "$(ERT_FAST_SELECTOR)" 2>&1 | tee $(PROJECT_ROOT)/tests/test-file-output.log; \
 	if [ $$? -eq 0 ]; then \
-		echo "$(GREEN)✓ All tests in $$TESTFILE passed!$(NC)"; \
+		printf "$(GREEN)✓ All tests in $$TESTFILE passed!$(NC)\n"; \
 	else \
-		echo "$(RED)✗ Some tests failed.$(NC)"; \
+		printf "$(RED)✗ Some tests failed.$(NC)\n"; \
 		exit 1; \
 	fi
 
-# Run one specific test
+# Run one specific test (fuzzy match by name)
 test-one: check-deps
 ifndef TEST
-	@echo "$(RED)Error: TEST not specified$(NC)"
+	@printf "$(RED)Error: TEST not specified$(NC)\n"
 	@echo "Usage: make test-one TEST=pilot"
 	@echo "       make test-one TEST=test-overdue-has-passed-time-today-all-day"
 	@exit 1
 endif
-	@echo "$(YELLOW)Searching for test matching '$(TEST)'...$(NC)"
+	@printf "$(YELLOW)Searching for test matching '$(TEST)'...$(NC)\n"
 	@TESTFILE=$$(grep -l "ert-deftest.*$(TEST)" test-*.el 2>/dev/null | head -1); \
 	if [ -z "$$TESTFILE" ]; then \
-		echo "$(RED)Error: No test matching '$(TEST)' found$(NC)"; \
+		printf "$(RED)Error: No test matching '$(TEST)' found$(NC)\n"; \
 		exit 1; \
 	fi; \
 	TESTNAME=$$(grep "ert-deftest.*$(TEST)" "$$TESTFILE" | sed 's/^(ert-deftest \([^ ]*\).*/\1/' | head -1); \
-	echo "$(YELLOW)Running test '$$TESTNAME' in $$TESTFILE...$(NC)"; \
-	$(EMACS) $(EMACSFLAGS) $(LOADPATH) $(TESTFLAGS) -l "$$TESTFILE" \
+	printf "$(YELLOW)Running test '$$TESTNAME' in $$TESTFILE...$(NC)\n"; \
+	$(EMACS_BATCH) -l ert -l "$$TESTFILE" \
 		--eval "(ert-run-tests-batch-and-exit \"$$TESTNAME\")" 2>&1; \
 	if [ $$? -eq 0 ]; then \
-		echo "$(GREEN)✓ Test $$TESTNAME passed!$(NC)"; \
+		printf "$(GREEN)✓ Test $$TESTNAME passed!$(NC)\n"; \
 	else \
-		echo "$(RED)✗ Test $$TESTNAME failed.$(NC)"; \
+		printf "$(RED)✗ Test $$TESTNAME failed.$(NC)\n"; \
 		exit 1; \
 	fi
 
-# Run only unit tests
+# Run only unit tests (excluding :slow)
 test-unit: check-deps
-	@echo "$(YELLOW)Running unit tests ($(words $(UNIT_TESTS)) files)...$(NC)"
+	@printf "$(YELLOW)Running unit tests ($(words $(UNIT_TESTS)) files, excluding :slow)...$(NC)\n"
 	@failed=0; \
 	for testfile in $(UNIT_TESTS); do \
 		echo "  Testing $$testfile..."; \
-		$(EMACS) $(EMACSFLAGS) $(LOADPATH) $(TESTFLAGS) -l "$$testfile" \
-			--eval '(ert-run-tests-batch-and-exit)' || failed=$$((failed + 1)); \
+		$(EMACS_BATCH) -l ert -l "$$testfile" \
+			--eval "$(ERT_FAST_SELECTOR)" || failed=$$((failed + 1)); \
 	done; \
 	if [ $$failed -eq 0 ]; then \
-		echo "$(GREEN)[✓] All unit tests passed$(NC)"; \
+		printf "$(GREEN)[✓] All unit tests passed$(NC)\n"; \
 	else \
-		echo "$(RED)[✗] $$failed unit test file(s) failed$(NC)"; \
+		printf "$(RED)[✗] $$failed unit test file(s) failed$(NC)\n"; \
 		exit 1; \
 	fi
 
-# Run only integration tests
+# Run only integration tests (excluding :slow)
 test-integration: check-deps
-	@echo "$(YELLOW)Running integration tests ($(words $(INTEGRATION_TESTS)) files)...$(NC)"
+	@printf "$(YELLOW)Running integration tests ($(words $(INTEGRATION_TESTS)) files, excluding :slow)...$(NC)\n"
 	@failed=0; \
 	for testfile in $(INTEGRATION_TESTS); do \
 		echo "  Testing $$testfile..."; \
-		$(EMACS) $(EMACSFLAGS) $(LOADPATH) $(TESTFLAGS) -l "$$testfile" \
-			--eval '(ert-run-tests-batch-and-exit)' || failed=$$((failed + 1)); \
+		$(EMACS_BATCH) -l ert -l "$$testfile" \
+			--eval "$(ERT_FAST_SELECTOR)" || failed=$$((failed + 1)); \
 	done; \
 	if [ $$failed -eq 0 ]; then \
-		echo "$(GREEN)[✓] All integration tests passed$(NC)"; \
+		printf "$(GREEN)[✓] All integration tests passed$(NC)\n"; \
 	else \
-		echo "$(RED)[✗] $$failed integration test file(s) failed$(NC)"; \
+		printf "$(RED)[✗] $$failed integration test file(s) failed$(NC)\n"; \
 		exit 1; \
 	fi
 
 # Run tests matching a name pattern (ERT selector)
 test-name: check-deps
 ifndef TEST
-	@echo "$(RED)Error: TEST not specified$(NC)"
+	@printf "$(RED)Error: TEST not specified$(NC)\n"
 	@echo "Usage: make test-name TEST=test-chime-check-early-return"
 	@echo "       make test-name TEST='test-chime-check-*'"
 	@exit 1
 endif
-	@echo "$(YELLOW)Running tests matching pattern: $(TEST)...$(NC)"
-	@$(EMACS) $(EMACSFLAGS) $(LOADPATH) $(TESTFLAGS) \
+	@printf "$(YELLOW)Running tests matching pattern: $(TEST)...$(NC)\n"
+	@$(EMACS_BATCH) -l ert \
 		--eval "(dolist (f (directory-files \".\" t \"^test-.*\\\\.el$$\")) (load f))" \
 		--eval '(ert-run-tests-batch-and-exit "$(TEST)")'
 
@@ -161,22 +181,22 @@ count:
 		printf "%3d tests - %s\n" "$$count" "$$f"; \
 	done | sort -rn
 	@total=$$(find . -name "test-*.el" -exec grep -c "^(ert-deftest" {} \; | awk '{sum+=$$1} END {print sum}'); \
-	echo "$(GREEN)Total: $$total tests across $(words $(ALL_TESTS)) files$(NC)"
+	printf "$(GREEN)Total: $$total tests across $(words $(ALL_TESTS)) files$(NC)\n"
 
 # List all available tests
 list:
 	@echo "Available tests:"
 	@grep -h "^(ert-deftest" test-*.el | sed 's/^(ert-deftest \([^ ]*\).*/  \1/' | sort
 
-# Validate Emacs Lisp syntax
+# Validate Emacs Lisp syntax (parens balance — no deps needed)
 validate:
-	@echo "$(YELLOW)Validating Emacs Lisp syntax...$(NC)"
+	@printf "$(YELLOW)Validating Emacs Lisp syntax...$(NC)\n"
 	@failed=0; \
 	total=0; \
 	for file in ../chime.el test-*.el testutil-*.el; do \
 		if [ -f "$$file" ] && [ ! -d "$$file" ]; then \
 			total=$$((total + 1)); \
-			output=$$($(EMACS) --batch $(LOADPATH) --eval "(progn \
+			output=$$(emacs --batch -Q --eval "(progn \
 				(setq byte-compile-error-on-warn nil) \
 				(find-file \"$$file\") \
 				(condition-case err \
@@ -187,52 +207,50 @@ validate:
 						(message \"✗ $$file: %s\" (error-message-string err)) \
 						(kill-emacs 1))))" 2>&1 | grep -E '(✓|✗)'); \
 			if [ $$? -eq 0 ]; then \
-				echo "$(GREEN)$$output$(NC)"; \
+				printf "$(GREEN)$$output$(NC)\n"; \
 			else \
-				echo "$(RED)$$output$(NC)"; \
+				printf "$(RED)$$output$(NC)\n"; \
 				failed=$$((failed + 1)); \
 			fi; \
 		fi; \
 	done; \
 	if [ $$failed -eq 0 ]; then \
-		echo "$(GREEN)✓ All $$total files validated successfully$(NC)"; \
+		printf "$(GREEN)✓ All $$total files validated successfully$(NC)\n"; \
 	else \
-		echo "$(RED)✗ $$failed of $$total files failed validation$(NC)"; \
+		printf "$(RED)✗ $$failed of $$total files failed validation$(NC)\n"; \
 		exit 1; \
 	fi
 
-# Comprehensive linting with elisp-lint
-lint:
-	@echo "$(YELLOW)Running elisp-lint...$(NC)"
-	@$(EMACS) --batch --eval "(progn \
-		(require 'package) \
-		(package-initialize) \
-		(require 'elisp-lint))" \
+# Comprehensive linting with elisp-lint (via eask-installed dev dep)
+lint: check-deps
+	@printf "$(YELLOW)Running elisp-lint...$(NC)\n"
+	@$(EMACS_BATCH) --eval "(require 'elisp-lint)" \
 		-f elisp-lint-files-batch \
 		--no-checkdoc \
 		../chime.el test-*.el testutil-*.el 2>&1; \
 	if [ $$? -eq 0 ]; then \
-		echo "$(GREEN)✓ Linting completed successfully$(NC)"; \
+		printf "$(GREEN)✓ Linting completed successfully$(NC)\n"; \
 	else \
-		echo "$(RED)✗ Linting found issues (see above)$(NC)"; \
+		printf "$(RED)✗ Linting found issues (see above)$(NC)\n"; \
 		exit 1; \
 	fi
 
 # Clean byte-compiled files
 clean:
-	@echo "$(YELLOW)Cleaning byte-compiled files...$(NC)"
+	@printf "$(YELLOW)Cleaning byte-compiled files...$(NC)\n"
 	@rm -f *.elc ../*.elc
 	@rm -f test-output.log test-file-output.log test-unit-output.log test-integration-output.log
-	@echo "$(GREEN)✓ Cleaned$(NC)"
+	@printf "$(GREEN)✓ Cleaned$(NC)\n"
 
 # Show help
 help:
 	@echo "Chime Test Suite Makefile"
 	@echo ""
 	@echo "Usage:"
-	@echo "  make test                      - Run all tests (unit + integration)"
-	@echo "  make test-unit                 - Run unit tests only"
-	@echo "  make test-integration          - Run integration tests only"
+	@echo "  make test                      - Run all tests, excluding :slow"
+	@echo "  make test-all                  - Run all tests including :slow"
+	@echo "  make test-unit                 - Run unit tests only (excluding :slow)"
+	@echo "  make test-integration          - Run integration tests only (excluding :slow)"
 	@echo "  make test-file FILE=overdue    - Run tests in one file (fuzzy match)"
 	@echo "  make test-one TEST=pilot       - Run one specific test (fuzzy match)"
 	@echo "  make test-name TEST=pattern    - Run tests matching ERT name pattern"
@@ -241,15 +259,17 @@ help:
 	@echo "  make count                     - Count tests per file"
 	@echo "  make list                      - List all test names"
 	@echo "  make clean                     - Remove byte-compiled files and logs"
-	@echo "  make check-deps                - Verify all dependencies are installed"
+	@echo "  make check-deps                - Verify eask + installed deps"
 	@echo "  make help                      - Show this help message"
 	@echo ""
-	@echo "Examples:"
-	@echo "  make test                                    # Run everything"
-	@echo "  make test-file FILE=overdue                  # Run test-chime-overdue-todos.el"
-	@echo "  make test-one TEST=pilot                     # Run the pilot test"
-	@echo "  make test-name TEST='test-chime-check-*'     # Run tests matching pattern"
+	@echo "Project-root targets (run from project root):"
+	@echo "  make setup                     - Install all deps via eask"
+	@echo "  make compile                   - Byte-compile chime.el"
+	@echo "  make coverage                  - Generate simplecov JSON via undercover"
+	@echo ""
+	@echo "Tagging tests as :slow:"
+	@echo "  (ert-deftest test-foo () :tags '(:slow) ...) — excluded by default"
+	@echo "  Run with 'make test-all' to include them."
 	@echo ""
 	@echo "Environment variables:"
-	@echo "  EMACS      - Emacs executable (default: emacs)"
-	@echo "  ELPA_DIR   - ELPA package directory (default: ~/.emacs.d/elpa)"
+	@echo "  EASK       - eask executable (default: eask)"
