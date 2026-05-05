@@ -686,13 +686,15 @@ Returns non-nil only if the timestamp includes HH:MM time information."
   "Human-friendly representation for SECONDS.
 Format is controlled by `chime-time-left-format-at-event',
 `chime-time-left-format-short', and `chime-time-left-format-long'."
-  (-> seconds
-       (pcase
-         ((pred (>= 0)) chime-time-left-format-at-event)
-         ((pred (>= 3600)) chime-time-left-format-short)
-         (_ chime-time-left-format-long))
-
-       (format-seconds seconds)))
+  ;; Don't fold this into a `(-> seconds (pcase ...) ...)' threading form —
+  ;; edebug's defun parser rejects threaded pcase, which breaks coverage
+  ;; instrumentation (undercover) on this file.
+  (let ((format-string
+         (pcase seconds
+           ((pred (>= 0)) chime-time-left-format-at-event)
+           ((pred (>= 3600)) chime-time-left-format-short)
+           (_ chime-time-left-format-long))))
+    (format-seconds format-string seconds)))
 
 (defun chime--get-hh-mm-from-org-time-string (time-string)
   "Convert given org time-string TIME-STRING into string with \\='hh:mm\\=' format."
