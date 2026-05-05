@@ -38,9 +38,10 @@
   (chime-create-test-base-dir)
   (setq chime-tooltip-header-format "Upcoming Events as of %a %b %d %Y @ %I:%M %p")
   (setq chime-display-time-format-string "%I:%M %p")
-  (setq chime-time-left-format-at-event "right now")
-  (setq chime-time-left-format-short "in %M")
-  (setq chime-time-left-format-long "in %H %M"))
+  (setq chime-time-left-formats
+        (list (cons 'at-event "right now")
+              (cons 'short    "in %M")
+              (cons 'long     "in %H %M"))))
 
 (defun test-chime-propertize-teardown ()
   "Teardown function."

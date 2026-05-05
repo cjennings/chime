@@ -436,7 +436,7 @@ Customize which components are shown:
 Available placeholders:
 - =%t= - Event title
 - =%T= - Event time (formatted per =chime-display-time-format-string=)
-- =%u= - Time until event (formatted per =chime-time-left-format-*=)
+- =%u= - Time until event (formatted per =chime-time-left-formats=)
 
 ***** Event Time Format
 
@@ -471,24 +471,35 @@ Available format codes:
 
 Customize how the countdown is displayed:
 
+All three formats live in one alist, =chime-time-left-formats=, with three keys:
+=at-event= (literal string when the event has arrived), =short=
+(=format-seconds= template for under 1 hour), and =long= (template for 1 hour
+or more).
+
 #+BEGIN_SRC elisp
 ;; Default: verbose format
-(setq chime-time-left-format-short "in %M")      ; Under 1 hour
-(setq chime-time-left-format-long "in %H %M")    ; 1 hour or more
+(setq chime-time-left-formats
+      '((at-event . "right now")
+        (short    . "in %M")
+        (long     . "in %H %M")))
 ;; → "in 10 minutes" or "in 1 hour 30 minutes"
 
 ;; Compact format
-(setq chime-time-left-format-short "in %mm")
-(setq chime-time-left-format-long "in %hh %mm")
+(setq chime-time-left-formats
+      '((at-event . "right now")
+        (short    . "in %mm")
+        (long     . "in %hh %mm")))
 ;; → "in 10m" or "in 1h 30m"
 
 ;; Very compact (no prefix)
-(setq chime-time-left-format-short "%mm")
-(setq chime-time-left-format-long "%hh%mm")
+(setq chime-time-left-formats
+      '((at-event . "right now")
+        (short    . "%mm")
+        (long     . "%hh%mm")))
 ;; → "10m" or "1h30m"
 
-;; Custom "at event time" message
-(setq chime-time-left-format-at-event "NOW!")
+;; Tweak just one key — `setf' on `alist-get' is fine for one-shots
+(setf (alist-get 'at-event chime-time-left-formats) "NOW!")
 ;; → "NOW!" instead of "right now"
 #+END_SRC
 
@@ -529,8 +540,10 @@ For maximum modeline space savings:
 (setq chime-modeline-lookahead-minutes 60)
 (setq chime-modeline-format " ⏰ %s")                    ; Minimal prefix
 (setq chime-notification-text-format "%t (%u)")        ; No time shown
-(setq chime-time-left-format-short "%mm")              ; Compact short
-(setq chime-time-left-format-long "%hh%mm")            ; Compact long
+(setq chime-time-left-formats                          ; Compact countdown
+      '((at-event . "right now")
+        (short    . "%mm")
+        (long     . "%hh%mm")))
 (setq chime-max-title-length 20)                       ; Truncate long titles
 ;; Result: "⏰ Dentist (10m)" or "⏰ Retrospective o... (1h30m)"
 #+END_SRC
@@ -835,9 +848,10 @@ If you have custom variables that need to be available in chime's async subproce
     (setq chime-modeline-format " ⏰%s")           ; Minimal prefix
     (setq chime-notification-text-format "%t (%u)") ; Title + countdown only
     (setq chime-display-time-format-string "%H:%M") ; 24-hour time
-    (setq chime-time-left-format-short "in %mm")   ; Compact: "in 5m"
-    (setq chime-time-left-format-long "%hh%mm")    ; Compact: "1h30m"
-    (setq chime-time-left-format-at-event "NOW!")  ; Custom at-event message
+    (setq chime-time-left-formats                  ; Countdown formats
+          '((at-event . "NOW!")
+            (short    . "in %mm")
+            (long     . "%hh%mm")))
 
     ;; Notification settings
     (setq chime-notification-title "Reminder")

@@ -35,9 +35,10 @@
   "Setup function run before each test."
   (chime-create-test-base-dir)
   ;; Reset format strings to defaults
-  (setq chime-time-left-format-at-event "right now")
-  (setq chime-time-left-format-short "in %M")
-  (setq chime-time-left-format-long "in %H %M"))
+  (setq chime-time-left-formats
+        (list (cons 'at-event "right now")
+              (cons 'short    "in %M")
+              (cons 'long     "in %H %M"))))
 
 (defun test-chime-time-left-teardown ()
   "Teardown function run after each test."
@@ -216,7 +217,7 @@
   (test-chime-time-left-setup)
   (unwind-protect
       (progn
-        (setq chime-time-left-format-short "in %mm")
+        (setf (alist-get 'short chime-time-left-formats) "in %mm")
         (let ((result (chime--time-left 300)))  ; 5 minutes
           (should (stringp result))
           (should (string-equal "in 5m" result))))
@@ -227,7 +228,7 @@
   (test-chime-time-left-setup)
   (unwind-protect
       (progn
-        (setq chime-time-left-format-long "in %hh %mm")
+        (setf (alist-get 'long chime-time-left-formats) "in %hh %mm")
         (let ((result (chime--time-left 5820)))  ; 1 hour 37 minutes
           (should (stringp result))
           (should (string-equal "in 1h 37m" result))))
@@ -238,7 +239,7 @@
   (test-chime-time-left-setup)
   (unwind-protect
       (progn
-        (setq chime-time-left-format-long "(%h hr %m min)")
+        (setf (alist-get 'long chime-time-left-formats) "(%h hr %m min)")
         (let ((result (chime--time-left 5820)))  ; 1 hour 37 minutes
           (should (stringp result))
           (should (string-equal "(1 hr 37 min)" result))))
@@ -249,7 +250,7 @@
   (test-chime-time-left-setup)
   (unwind-protect
       (progn
-        (setq chime-time-left-format-long "%hh%mm")
+        (setf (alist-get 'long chime-time-left-formats) "%hh%mm")
         (let ((result (chime--time-left 5820)))  ; 1 hour 37 minutes
           (should (stringp result))
           (should (string-equal "1h37m" result))))
@@ -260,7 +261,7 @@
   (test-chime-time-left-setup)
   (unwind-protect
       (progn
-        (setq chime-time-left-format-at-event "NOW!")
+        (setf (alist-get 'at-event chime-time-left-formats) "NOW!")
         (let ((result (chime--time-left 0)))
           (should (stringp result))
           (should (string-equal "NOW!" result))))
@@ -271,7 +272,7 @@
   (test-chime-time-left-setup)
   (unwind-protect
       (progn
-        (setq chime-time-left-format-short "%m min")
+        (setf (alist-get 'short chime-time-left-formats) "%m min")
         (let ((result (chime--time-left 300)))  ; 5 minutes
           (should (stringp result))
           (should (string-equal "5 min" result))))
@@ -282,7 +283,7 @@
   (test-chime-time-left-setup)
   (unwind-protect
       (progn
-        (setq chime-time-left-format-long "🕐 %hh%mm")
+        (setf (alist-get 'long chime-time-left-formats) "🕐 %hh%mm")
         (let ((result (chime--time-left 5820)))  ; 1 hour 37 minutes
           (should (stringp result))
           (should (string-equal "🕐 1h37m" result))))

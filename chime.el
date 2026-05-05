@@ -224,43 +224,40 @@ Note: Avoid using seconds (%S) as chime polls once per minute."
            (warn "chime-display-time-format-string: Using seconds (%%S) is not recommended as chime polls once per minute"))
          (set-default symbol value)))
 
-(defcustom chime-time-left-format-at-event "right now"
-  "Format string for when event time has arrived (0 or negative seconds).
-This is a literal string with no format codes."
-  :package-version '(chime . "0.6.0")
-  :group 'chime
-  :type 'string)
+(defcustom chime-time-left-formats
+  '((at-event . "right now")
+    (short    . "in %M")
+    (long     . "in %H %M"))
+  "Format strings for time-until-event display, keyed by regime.
+An alist with three keys:
 
-(defcustom chime-time-left-format-short "in %M"
-  "Format string for times under 1 hour.
-Uses `format-seconds' codes:
+  at-event - Literal string when event time has arrived (0 or negative
+             seconds).  No format codes.
+  short    - `format-seconds' template for times under 1 hour.
+  long     - `format-seconds' template for times 1 hour or longer.
+
+Available `format-seconds' codes for short/long:
   %m - minutes as number only (e.g., \"37\")
   %M - minutes with unit name (e.g., \"37 minutes\")
-
-Examples:
-  \"in %M\"      -> \"in 37 minutes\"
-  \"in %mm\"     -> \"in 37m\"
-  \"%m min\"     -> \"37 min\""
-  :package-version '(chime . "0.6.0")
-  :group 'chime
-  :type 'string)
-
-(defcustom chime-time-left-format-long "in %H %M"
-  "Format string for times 1 hour or longer.
-Uses `format-seconds' codes:
   %h - hours as number only (e.g., \"1\")
   %H - hours with unit name (e.g., \"1 hour\")
-  %m - minutes as number only (e.g., \"37\")
-  %M - minutes with unit name (e.g., \"37 minutes\")
 
-Examples:
+Examples for short:
+  \"in %M\"      -> \"in 37 minutes\"
+  \"in %mm\"     -> \"in 37m\"
+  \"%m min\"     -> \"37 min\"
+
+Examples for long:
   \"in %H %M\"       -> \"in 1 hour 37 minutes\"
   \"in %hh %mm\"     -> \"in 1h 37m\"
   \"(%h hr %m min)\" -> \"(1 hr 37 min)\"
   \"%hh%mm\"         -> \"1h37m\""
-  :package-version '(chime . "0.6.0")
+  :package-version '(chime . "0.8.0")
   :group 'chime
-  :type 'string)
+  :type '(alist :key-type (choice (const at-event)
+                                  (const short)
+                                  (const long))
+                :value-type string))
 
 (defcustom chime-predicate-whitelist nil
   "Receive notifications for events matching these predicates only.
@@ -699,16 +696,16 @@ Returns non-nil only if the timestamp includes HH:MM time information."
 
 (defun chime--time-left (seconds)
   "Human-friendly representation for SECONDS.
-Format is controlled by `chime-time-left-format-at-event',
-`chime-time-left-format-short', and `chime-time-left-format-long'."
+Format is controlled by `chime-time-left-formats' (keys: at-event,
+short, long)."
   ;; Don't fold this into a `(-> seconds (pcase ...) ...)' threading form —
   ;; edebug's defun parser rejects threaded pcase, which breaks coverage
   ;; instrumentation (undercover) on this file.
-  (let ((format-string
-         (pcase seconds
-           ((pred (>= 0)) chime-time-left-format-at-event)
-           ((pred (>= 3600)) chime-time-left-format-short)
-           (_ chime-time-left-format-long))))
+  (let* ((regime (pcase seconds
+                   ((pred (>= 0)) 'at-event)
+                   ((pred (>= 3600)) 'short)
+                   (_ 'long)))
+         (format-string (alist-get regime chime-time-left-formats)))
     (format-seconds format-string seconds)))
 
 (defun chime--get-hh-mm-from-org-time-string (time-string)

@@ -40,9 +40,10 @@
   ;; Reset notification text format to default
   (setq chime-notification-text-format "%t at %T (%u)")
   ;; Reset time-left formats to defaults
-  (setq chime-time-left-format-at-event "right now")
-  (setq chime-time-left-format-short "in %M")
-  (setq chime-time-left-format-long "in %H %M")
+  (setq chime-time-left-formats
+        (list (cons 'at-event "right now")
+              (cons 'short    "in %M")
+              (cons 'long     "in %H %M")))
   ;; Reset title truncation to default (no truncation)
   (setq chime-max-title-length nil))
 
@@ -331,7 +332,7 @@ REFACTORED: Uses dynamic timestamps"
              (str-interval (cons (test-timestamp-string time) '(10 . medium)))
              (event '((title . "Meeting")))
              (chime-notification-text-format "%t (%u)")
-             (chime-time-left-format-short "in %mm"))
+             (chime-time-left-formats '((at-event . "right now") (short . "in %mm") (long . "in %H %M"))))
         (let ((result (chime--notification-text str-interval event)))
           (should (stringp result))
           (should (string-equal "Meeting (in 10m)" result))))
