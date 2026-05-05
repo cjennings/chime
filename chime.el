@@ -8,7 +8,7 @@
 ;; Created: 6 Jan 2017
 ;; Version: 0.6.0
 ;; Package-Requires: ((alert "1.2") (async "1.9.3") (dash "2.18.0") (emacs "27.1"))
-;; Keywords: notification alert org org-agenda agenda calendar chime sound
+;; Keywords: notification alert org org-agenda calendar
 ;; URL: https://github.com/cjennings/chime
 
 ;; This program is free software: you can redistribute it and/or modify
