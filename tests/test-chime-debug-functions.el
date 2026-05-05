@@ -19,8 +19,8 @@
 
 ;;; Commentary:
 
-;; Tests for debug functions: chime--debug-dump-events, chime--debug-dump-tooltip,
-;; and chime--debug-config. These tests verify that debug functions work correctly
+;; Tests for debug functions: chime-debug-dump-events, chime-debug-dump-tooltip,
+;; and chime-debug-config. These tests verify that debug functions work correctly
 ;; and handle edge cases gracefully.
 
 ;;; Code:
@@ -46,10 +46,10 @@
   (chime-delete-test-base-dir)
   (setq chime--upcoming-events nil))
 
-;;; Tests for chime--debug-dump-events
+;;; Tests for chime-debug-dump-events
 
 (ert-deftest test-chime-debug-dump-events-normal-with-events ()
-  "Test that chime--debug-dump-events dumps events to *Messages* buffer."
+  "Test that chime-debug-dump-events dumps events to *Messages* buffer."
   (test-chime-debug-functions-setup)
   (unwind-protect
       (let* ((now (test-time-today-at 14 0))
@@ -67,7 +67,7 @@
               (let ((inhibit-read-only t))
                 (erase-buffer)))
             ;; Call debug function
-            (chime--debug-dump-events)
+            (chime-debug-dump-events)
             ;; Verify output in *Messages* buffer
             (with-current-buffer "*Messages*"
               (let ((content (buffer-string)))
@@ -77,7 +77,7 @@
     (test-chime-debug-functions-teardown)))
 
 (ert-deftest test-chime-debug-dump-events-boundary-no-events ()
-  "Test that chime--debug-dump-events handles no events gracefully."
+  "Test that chime-debug-dump-events handles no events gracefully."
   (test-chime-debug-functions-setup)
   (unwind-protect
       (progn
@@ -85,14 +85,14 @@
         (setq chime--upcoming-events nil)
         ;; Should not error
         (should-not (condition-case nil
-                        (progn (chime--debug-dump-events) nil)
+                        (progn (chime-debug-dump-events) nil)
                       (error t))))
     (test-chime-debug-functions-teardown)))
 
-;;; Tests for chime--debug-dump-tooltip
+;;; Tests for chime-debug-dump-tooltip
 
 (ert-deftest test-chime-debug-dump-tooltip-normal-with-events ()
-  "Test that chime--debug-dump-tooltip dumps tooltip to *Messages* buffer."
+  "Test that chime-debug-dump-tooltip dumps tooltip to *Messages* buffer."
   (test-chime-debug-functions-setup)
   (unwind-protect
       (let* ((now (test-time-today-at 14 0))
@@ -110,7 +110,7 @@
               (let ((inhibit-read-only t))
                 (erase-buffer)))
             ;; Call debug function
-            (chime--debug-dump-tooltip)
+            (chime-debug-dump-tooltip)
             ;; Verify output in *Messages* buffer
             (with-current-buffer "*Messages*"
               (let ((content (buffer-string)))
@@ -120,7 +120,7 @@
     (test-chime-debug-functions-teardown)))
 
 (ert-deftest test-chime-debug-dump-tooltip-boundary-no-events ()
-  "Test that chime--debug-dump-tooltip handles no events gracefully."
+  "Test that chime-debug-dump-tooltip handles no events gracefully."
   (test-chime-debug-functions-setup)
   (unwind-protect
       (progn
@@ -128,14 +128,14 @@
         (setq chime--upcoming-events nil)
         ;; Should not error
         (should-not (condition-case nil
-                        (progn (chime--debug-dump-tooltip) nil)
+                        (progn (chime-debug-dump-tooltip) nil)
                       (error t))))
     (test-chime-debug-functions-teardown)))
 
-;;; Tests for chime--debug-config
+;;; Tests for chime-debug-config
 
 (ert-deftest test-chime-debug-config-normal-dumps-config ()
-  "Test that chime--debug-config dumps configuration to *Messages* buffer."
+  "Test that chime-debug-config dumps configuration to *Messages* buffer."
   (test-chime-debug-functions-setup)
   (unwind-protect
       (let ((chime-enable-modeline t)
@@ -147,7 +147,7 @@
           (let ((inhibit-read-only t))
             (erase-buffer)))
         ;; Call debug function
-        (chime--debug-config)
+        (chime-debug-config)
         ;; Verify output in *Messages* buffer
         (with-current-buffer "*Messages*"
           (let ((content (buffer-string)))
@@ -161,7 +161,7 @@
     (test-chime-debug-functions-teardown)))
 
 (ert-deftest test-chime-debug-config-boundary-no-agenda-files ()
-  "Test that chime--debug-config handles empty org-agenda-files."
+  "Test that chime-debug-config handles empty org-agenda-files."
   (test-chime-debug-functions-setup)
   (unwind-protect
       (let ((org-agenda-files '()))
@@ -171,7 +171,7 @@
             (erase-buffer)))
         ;; Should not error
         (should-not (condition-case nil
-                        (progn (chime--debug-config) nil)
+                        (progn (chime-debug-config) nil)
                       (error t)))
         ;; Verify output mentions 0 files
         (with-current-buffer "*Messages*"
@@ -200,9 +200,9 @@
             ;; Call all three debug functions - should not error
             (should-not (condition-case nil
                             (progn
-                              (chime--debug-dump-events)
-                              (chime--debug-dump-tooltip)
-                              (chime--debug-config)
+                              (chime-debug-dump-events)
+                              (chime-debug-dump-tooltip)
+                              (chime-debug-config)
                               nil)
                           (error t))))))
     (test-chime-debug-functions-teardown)))

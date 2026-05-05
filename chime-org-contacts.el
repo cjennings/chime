@@ -3,10 +3,11 @@
 ;; Copyright (C) 2025-2026 Craig Jennings
 
 ;; Author: Craig Jennings <c@cjennings.net>
-;; Version: 1.0.0
-;; Package-Requires: ((emacs "27.1") (org "9.0"))
-;; Keywords: calendar, org-mode, contacts
 ;; URL: https://github.com/cjennings/chime
+
+;; This file is part of the chime package.  Version, Package-Requires, and
+;; Keywords live on the main file (chime.el); auxiliary files do not repeat
+;; them per package-lint convention.
 
 ;; This program is free software: you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -145,11 +146,12 @@ Added: %U"
 
 ;;; Activation
 
-;; Set up the capture template when org-capture is loaded,
-;; but only if chime-org-contacts-file is configured
-(with-eval-after-load 'org-capture
-  (when chime-org-contacts-file
-    (chime-org-contacts--setup-capture-template)))
+;; chime.el guards the require of this file behind its own
+;; `with-eval-after-load' on `org-capture', so by the time we get here
+;; org-capture is loaded.  Set up the template directly when the user
+;; has configured `chime-org-contacts-file'.
+(when chime-org-contacts-file
+  (chime-org-contacts--setup-capture-template))
 
 (provide 'chime-org-contacts)
 ;;; chime-org-contacts.el ends here

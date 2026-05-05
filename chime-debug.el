@@ -3,8 +3,10 @@
 ;; Copyright (C) 2024-2026 Craig Jennings
 
 ;; Author: Craig Jennings <c@cjennings.net>
-;; Keywords: notification alert org org-agenda debug
 ;; URL: https://github.com/cjennings/chime
+
+;; This file is part of the chime package.  Keywords live on the main file
+;; (chime.el); auxiliary files don't repeat them per package-lint convention.
 
 ;; This program is free software: you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -29,9 +31,9 @@
 ;;   (require 'chime)
 ;;
 ;; Available debug functions:
-;; - `chime--debug-dump-events' - Show all stored upcoming events
-;; - `chime--debug-dump-tooltip' - Show tooltip content
-;; - `chime--debug-config' - Show complete configuration dump
+;; - `chime-debug-dump-events' - Show all stored upcoming events
+;; - `chime-debug-dump-tooltip' - Show tooltip content
+;; - `chime-debug-config' - Show complete configuration dump
 ;; - `chime-debug-monitor-event-loading' - Monitor when events are first loaded
 ;;
 ;; All functions write to *Messages* buffer without cluttering echo area.
@@ -47,7 +49,7 @@
 ;; No need for (require 'chime) here
 
 ;;;###autoload
-(defun chime--debug-dump-events ()
+(defun chime-debug-dump-events ()
   "Dump all upcoming events to *Messages* buffer for debugging.
 Shows events stored in `chime--upcoming-events' with their times and titles."
   (interactive)
@@ -74,7 +76,7 @@ Shows events stored in `chime--upcoming-events' with their times and titles."
     (message "Dumped %d events to *Messages* buffer" (length chime--upcoming-events))))
 
 ;;;###autoload
-(defun chime--debug-dump-tooltip ()
+(defun chime-debug-dump-tooltip ()
   "Dump current tooltip content to *Messages* buffer for debugging.
 Shows the tooltip text that would appear when hovering over the modeline."
   (interactive)
@@ -89,7 +91,7 @@ Shows the tooltip text that would appear when hovering over the modeline."
         (message "Dumped tooltip content to *Messages* buffer")))))
 
 ;;;###autoload
-(defun chime--debug-config ()
+(defun chime-debug-config ()
   "Dump chime configuration and status to *Messages* buffer.
 Shows all relevant settings, agenda files, and current state."
   (interactive)
@@ -259,7 +261,7 @@ ERROR-DATA is the error information from the async process."
   (setq chime--debug-async-start-time nil))
 
 ;;;###autoload
-(defun chime--debug-show-async-stats ()
+(defun chime-debug-show-async-stats ()
   "Show statistics about async process performance."
   (interactive)
   (chime--log-silently "=== Chime Debug: Async Stats ===")
@@ -299,7 +301,7 @@ ERROR-DATA is the error information from the async process."
           :not-loaded (nreverse not-loaded))))
 
 ;;;###autoload
-(defun chime--debug-dump-loaded-features ()
+(defun chime-debug-dump-loaded-features ()
   "Dump which chime-related features are currently loaded.
 Useful for diagnosing lazy-loading issues."
   (interactive)
@@ -327,7 +329,7 @@ Warns about slow processes and tracks statistics."
                 (chime--debug-log-async-start)))
 
   (chime--log-silently "Chime debug: Async process monitoring enabled")
-  (message "Chime: Async monitoring enabled - use M-x chime--debug-show-async-stats"))
+  (message "Chime: Async monitoring enabled - use M-x chime-debug-show-async-stats"))
 
 ;;;###autoload
 (defun chime-debug-disable-async-monitoring ()
@@ -438,7 +440,7 @@ Shows loaded features before the check and logs async process details."
         (chime--log-silently "  - Event not within %d-minute interval" interval)))))
 
 ;;;###autoload
-(defun chime--debug-notification-filtering (event-time interval)
+(defun chime-debug-notification-filtering (event-time interval)
   "Debug why a notification might not be generated for EVENT-TIME and INTERVAL.
 EVENT-TIME should be an Emacs time value (from encode-time or current-time).
 INTERVAL is the number of minutes before the event to notify.
@@ -447,12 +449,12 @@ Traces through the notification filtering pipeline step by step,
 logging results to *Messages*.
 
 Example usage:
-  (chime--debug-notification-filtering
+  (chime-debug-notification-filtering
     (time-add (current-time) (seconds-to-time (* 4 24 3600)))  ; 4 days from now
     5760)  ; 4 days in minutes
 
 Or for a specific date/time:
-  (chime--debug-notification-filtering
+  (chime-debug-notification-filtering
     (encode-time 0 0 10 22 11 2025)  ; Nov 22, 2025 at 10:00
     10)  ; 10 minutes before"
   (interactive

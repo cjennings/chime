@@ -966,15 +966,30 @@ After conversion, comment out the diary sexp in your schedule file:
 
 *Step 2: Set up capture template for new contacts*
 
+The =chime-org-contacts= integration is optional and lives in its own file.  Require it after =org-capture= loads so the template registers cleanly:
+
 #+BEGIN_SRC elisp
 ;; Enable org-contacts integration
 (setq chime-org-contacts-file "~/org/contacts.org")
 
 ;; Optional: customize capture key (default: "C")
 (setq chime-org-contacts-capture-key "C")
+
+;; Load the integration once org-capture is available
+(with-eval-after-load 'org-capture
+  (require 'chime-org-contacts))
 #+END_SRC
 
-This adds an org-capture template (=C-c c C=) that prompts for contact details and automatically inserts a yearly repeating timestamp if a birthday is provided.
+Or, with =use-package=:
+
+#+BEGIN_SRC elisp
+(use-package chime-org-contacts
+  :after org-capture
+  :init
+  (setq chime-org-contacts-file "~/org/contacts.org"))
+#+END_SRC
+
+Either form adds an org-capture template (=C-c c C=) that prompts for contact details and automatically inserts a yearly repeating timestamp if a birthday is provided.
 
 Set =chime-org-contacts-file= to =nil= to disable (the default).
 
@@ -995,10 +1010,10 @@ If something isn't working right, enable debug mode for detailed diagnostics in 
 
 This loads =chime-debug.el= and gives you these commands:
 
-- =M-x chime--debug-dump-events= -- show all stored upcoming events
-- =M-x chime--debug-dump-tooltip= -- show tooltip content
-- =M-x chime--debug-config= -- dump complete configuration
-- =M-x chime--debug-show-async-stats= -- show async process success/failure stats
+- =M-x chime-debug-dump-events= -- show all stored upcoming events
+- =M-x chime-debug-dump-tooltip= -- show tooltip content
+- =M-x chime-debug-config= -- dump complete configuration
+- =M-x chime-debug-show-async-stats= -- show async process success/failure stats
 - =M-x chime-debug-force-check= -- force an immediate check with diagnostics
 
 It also monitors event loading timing and async process performance in the background, logging to =*Messages*=.

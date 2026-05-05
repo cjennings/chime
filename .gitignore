@@ -13,3 +13,4 @@
 /.coverage/
 /makefile-local
 /tests/makefile-local
+.claude/

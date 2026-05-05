@@ -541,9 +541,9 @@ Set to 0 to disable failure warnings."
 (defcustom chime-debug nil
   "Enable debug functions for troubleshooting chime behavior.
 When non-nil, loads chime-debug.el which provides:
-- `chime--debug-dump-events' - Show all stored upcoming events
-- `chime--debug-dump-tooltip' - Show tooltip content
-- `chime--debug-config' - Show complete configuration dump
+- `chime-debug-dump-events' - Show all stored upcoming events
+- `chime-debug-dump-tooltip' - Show tooltip content
+- `chime-debug-config' - Show complete configuration dump
 - `chime-debug-monitor-event-loading' - Monitor event loading timing
 
 These functions write detailed information to the *Messages* buffer
@@ -567,16 +567,10 @@ Set to t to enable debug functions:
                              (file-name-directory (or load-file-name buffer-file-name)))
            t))
 
-;; Load org-contacts integration if configured
-;; Note: The actual template setup happens in chime-org-contacts.el
-;; when org-capture is loaded, so users can defer org loading
-(with-eval-after-load 'org-capture
-  (when (and (boundp 'chime-org-contacts-file)
-             chime-org-contacts-file)
-    (require 'chime-org-contacts
-             (expand-file-name "chime-org-contacts.el"
-                               (file-name-directory (or load-file-name buffer-file-name)))
-             t)))
+;; The optional org-contacts integration in chime-org-contacts.el is loaded
+;; by the user, not by chime itself.  See the README for the recommended
+;; `(with-eval-after-load 'org-capture (require 'chime-org-contacts))' or
+;; `use-package chime-org-contacts :after org-capture' setup.
 
 ;;;; Internal State
 
