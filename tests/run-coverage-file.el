@@ -31,13 +31,19 @@
 ;; otherwise overwrite the value.
 (setq undercover-force-coverage t)
 
+;; Local runs emit simplecov for whatever local tooling wants it.  CI sets
+;; CI=true (GitHub Actions does this automatically), so we emit a coveralls
+;; JSON instead and leave it on disk for the upload action to pick up.
 ;; The `undercover' macro splices each configuration list into `(list ,@it)',
 ;; which evaluates the elements.  Wildcard strings have to stay atoms — using
 ;; `(:files ...)' form lets us evaluate `expand-file-name' to an absolute path.
 (undercover (:files (expand-file-name "chime.el" run-coverage--project-root))
-            (:report-format 'simplecov)
-            (:report-file (expand-file-name ".coverage/simplecov.json"
-                                            run-coverage--project-root))
+            (:report-format (if (getenv "CI") 'coveralls 'simplecov))
+            (:report-file (expand-file-name
+                           (if (getenv "CI")
+                               ".coverage/coveralls.json"
+                             ".coverage/simplecov.json")
+                           run-coverage--project-root))
             (:merge-report t)
             (:send-report nil))
 

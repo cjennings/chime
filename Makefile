@@ -17,9 +17,11 @@ SOURCE_FILE = chime.el
 COVERAGE_DIR = .coverage
 COVERAGE_FILE = $(COVERAGE_DIR)/simplecov.json
 
-# Unit-test files (used by coverage loop, mirroring tests/Makefile)
-UNIT_TESTS = $(filter-out $(TEST_DIR)/test-bootstrap.el $(TEST_DIR)/test-integration-%.el, \
-                          $(wildcard $(TEST_DIR)/test-*.el))
+# Test-file lists used by the coverage loop, mirroring tests/Makefile.
+# Coverage runs ALL_TESTS (including :slow integration tests) so the report
+# represents the full suite; selector is `t' rather than `(not (tag :slow))'.
+ALL_TESTS = $(filter-out $(TEST_DIR)/test-bootstrap.el, \
+                         $(wildcard $(TEST_DIR)/test-*.el))
 
 # Include local overrides if present (per-machine knobs, not committed)
 -include makefile-local
@@ -110,10 +112,10 @@ compile:
 coverage: coverage-clean $(COVERAGE_DIR)
 	@echo "[i] Cleaning .elc files so undercover can instrument source..."
 	@find . -name "*.elc" -delete
-	@echo "[i] Running coverage across $(words $(UNIT_TESTS)) unit-test file(s)..."
-	@echo "    (slower than 'make test-unit' — each file runs in its own Emacs)"
+	@echo "[i] Running coverage across $(words $(ALL_TESTS)) test file(s)..."
+	@echo "    (slower than 'make test' — each file runs in its own Emacs)"
 	@failed=0; \
-	for test in $(UNIT_TESTS); do \
+	for test in $(ALL_TESTS); do \
 		echo "  Coverage: $$test..."; \
 		testfile=$$(basename $$test); \
 		$(EMACS_BATCH_TESTS) \
@@ -121,14 +123,16 @@ coverage: coverage-clean $(COVERAGE_DIR)
 			-l run-coverage-file.el \
 			-l ../$(SOURCE_FILE) \
 			-l $$testfile \
-			--eval "(ert-run-tests-batch-and-exit '(not (tag :slow)))" || failed=$$((failed + 1)); \
+			--eval "(ert-run-tests-batch-and-exit t)" || failed=$$((failed + 1)); \
 	done; \
 	if [ $$failed -gt 0 ]; then \
 		echo "[!] $$failed test file(s) failed during coverage run"; \
 		exit 1; \
 	fi
-	@if [ -f $(COVERAGE_FILE) ]; then \
-		echo "[✓] Coverage report: $(COVERAGE_FILE) ($$(du -h $(COVERAGE_FILE) | cut -f1))"; \
+	@coverage_file="$${COVERAGE_FILE_ACTUAL:-$(COVERAGE_FILE)}"; \
+	[ -n "$$CI" ] && coverage_file="$(COVERAGE_DIR)/coveralls.json"; \
+	if [ -f "$$coverage_file" ]; then \
+		echo "[✓] Coverage report: $$coverage_file ($$(du -h $$coverage_file | cut -f1))"; \
 	else \
 		echo "[!] No coverage file produced; check that undercover is installed"; \
 		exit 1; \
