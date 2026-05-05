@@ -1732,8 +1732,7 @@ Handles both regular event notifications and day-wide alerts."
             (chime--notify (car day-wide))
           ;; Multiple events: bundle into one notification, one sound
           (let* ((messages (mapcar #'car day-wide))
-                 (body (mapconcat #'identity messages "\n"))
-                 (title (format "%d day-wide events" (length day-wide))))
+                 (body (mapconcat #'identity messages "\n")))
             (chime--notify (cons body 'medium))))))))
 
 (defun chime--maybe-warn-persistent-failures ()
