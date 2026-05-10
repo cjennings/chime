@@ -96,6 +96,27 @@ surfaces it as a configuration problem rather than a generic error."
     (user-error "%s must be >= %d, got: %d" symbol min value))
    (t value)))
 
+(defun chime--validate-day-wide-alert-times (symbol value)
+  "Reject bad day-wide alert time VALUE for SYMBOL at customize time.
+VALUE must be nil or a list of strings accepted by `org-get-time-of-day'
+as clock times within a single day.  Returns VALUE on success."
+  (unless (listp value)
+    (user-error "%s must be nil or a list of time strings, got: %S"
+                symbol value))
+  (dolist (time-string value)
+    (unless (stringp time-string)
+      (user-error "%s entries must be strings, got: %S"
+                  symbol time-string))
+    (let ((parsed-time (org-get-time-of-day time-string t)))
+      (unless parsed-time
+        (user-error "%s contains invalid time string: %S"
+                    symbol time-string))
+      (let ((minutes (org-duration-to-minutes parsed-time)))
+        (unless (< -1 minutes 1440)
+          (user-error "%s time must be between 00:00 and 23:59, got: %S"
+                      symbol time-string)))))
+  value)
+
 (defcustom chime-alert-intervals '((10 . medium) (0 . high))
   "Alert intervals with severity levels for upcoming events.
 Each element is a cons cell (MINUTES . SEVERITY) where:
@@ -284,13 +305,19 @@ declined."
 (defcustom chime-day-wide-alert-times '("08:00")
   "List of time strings for day-wide event alerts.
 Each string specifies a time of day when day-wide events should trigger.
+Accepted formats are the Org time-of-day formats accepted by
+`org-get-time-of-day', including 24-hour strings like \"08:00\" and
+12-hour strings like \"8:00am\".
 Defaults to 08:00 (morning reminder for all-day events happening today).
 Set to nil to disable all-day event notifications entirely.
 
 Example: \\='(\"08:00\" \"17:00\") for morning and evening reminders."
   :package-version '(chime . "0.6.0")
   :group 'chime
-  :type '(repeat string))
+  :type '(repeat string)
+  :set (lambda (symbol value)
+         (chime--validate-day-wide-alert-times symbol value)
+         (set-default symbol value)))
 
 (defcustom chime-show-any-overdue-with-day-wide-alerts t
   "Show any overdue TODO items along with day wide alerts whenever they are shown."
@@ -502,6 +529,111 @@ Result: \"Upcoming Events as of Tue Nov 04 2025 @ 08:25 PM\""
   :group 'chime
   :type 'string)
 
+(defcustom chime-tooltip-event-format "%t at %T %u"
+  "Format string for one event line in the tooltip.
+Available placeholders:
+  %t - Event title
+  %T - Event time, formatted per `chime-display-time-format-string'
+  %u - Time until event, wrapped in parentheses by default"
+  :package-version '(chime . "0.8.0")
+  :group 'chime
+  :type 'string)
+
+(defcustom chime-tooltip-today-label "Today"
+  "Relative day label for today's events in the tooltip."
+  :package-version '(chime . "0.8.0")
+  :group 'chime
+  :type 'string)
+
+(defcustom chime-tooltip-tomorrow-label "Tomorrow"
+  "Relative day label for tomorrow's events in the tooltip."
+  :package-version '(chime . "0.8.0")
+  :group 'chime
+  :type 'string)
+
+(defcustom chime-tooltip-relative-day-format "%s, %b %d"
+  "Format string for today/tomorrow tooltip section labels.
+The first `%s' is replaced with `chime-tooltip-today-label' or
+`chime-tooltip-tomorrow-label'.  Other format codes are passed to
+`format-time-string'."
+  :package-version '(chime . "0.8.0")
+  :group 'chime
+  :type 'string)
+
+(defcustom chime-tooltip-future-day-format "%A, %b %d"
+  "Format string for non-relative tooltip section labels.
+Passed to `format-time-string'."
+  :package-version '(chime . "0.8.0")
+  :group 'chime
+  :type 'string)
+
+(defcustom chime-tooltip-section-separator "─────────────"
+  "Separator text inserted below each tooltip day section heading."
+  :package-version '(chime . "0.8.0")
+  :group 'chime
+  :type 'string)
+
+(defcustom chime-tooltip-no-events-separator "─────────────────────"
+  "Separator text inserted below the no-events tooltip header."
+  :package-version '(chime . "0.8.0")
+  :group 'chime
+  :type 'string)
+
+(defcustom chime-tooltip-more-events-format "... and %d more event%s"
+  "Format string for the tooltip overflow line.
+The first format argument is the remaining event count.  The second is
+the English plural suffix, either \"\" or \"s\", for backward-compatible
+defaults."
+  :package-version '(chime . "0.8.0")
+  :group 'chime
+  :type 'string)
+
+(defcustom chime-tooltip-countdown-wrapper "(%s)"
+  "Format string that wraps tooltip countdown text."
+  :package-version '(chime . "0.8.0")
+  :group 'chime
+  :type 'string)
+
+(defcustom chime-tooltip-countdown-prefix "in"
+  "Prefix used by tooltip-specific day/hour countdown text."
+  :package-version '(chime . "0.8.0")
+  :group 'chime
+  :type 'string)
+
+(defcustom chime-tooltip-day-unit-labels '("day" . "days")
+  "Singular and plural day unit labels for tooltip countdown text."
+  :package-version '(chime . "0.8.0")
+  :group 'chime
+  :type '(cons (string :tag "Singular")
+               (string :tag "Plural")))
+
+(defcustom chime-tooltip-hour-unit-labels '("hour" . "hours")
+  "Singular and plural hour unit labels for tooltip countdown text."
+  :package-version '(chime . "0.8.0")
+  :group 'chime
+  :type '(cons (string :tag "Singular")
+               (string :tag "Plural")))
+
+(defcustom chime-tooltip-no-events-format "No calendar events in\nthe next %s."
+  "Format string for no-events tooltip body.
+The single format argument is the lookahead timeframe."
+  :package-version '(chime . "0.8.0")
+  :group 'chime
+  :type 'string)
+
+(defcustom chime-tooltip-increase-lookahead-format "Increase `%s`\nto expand scope."
+  "Format string for no-events tooltip lookahead guidance.
+The single format argument is the option name to customize."
+  :package-version '(chime . "0.8.0")
+  :group 'chime
+  :type 'string)
+
+(defcustom chime-tooltip-left-click-label "Left-click: Open calendar"
+  "Tooltip text describing the left-click calendar action."
+  :package-version '(chime . "0.8.0")
+  :group 'chime
+  :type 'string)
+
 (defcustom chime-sound-file
   (expand-file-name "sounds/chime.wav"
                     (file-name-directory
@@ -601,8 +733,11 @@ After `chime-max-consecutive-failures' failures, a warning is displayed.")
   "Last time checked for events.")
 
 (defvar chime--upcoming-events nil
-  "List of upcoming events with full data for tooltip and clicking.
-Each event includes marker, title, times, and intervals.")
+  "Cached tooltip event tuples for the current modeline state.
+Each element has the shape (EVENT TIME-INFO MINUTES-UNTIL), where EVENT
+is the internal event alist documented by `chime--valid-event-p',
+TIME-INFO is (TIMESTAMP-STRING . PARSED-TIME), and MINUTES-UNTIL is the
+numeric offset from the last modeline refresh time.")
 
 (defvar chime--validation-done nil
   "Whether configuration validation has been performed.
@@ -628,6 +763,99 @@ default for a specific environment, `setq' the variable in your init.")
   "Modeline string showing next upcoming event.")
 ;;;###autoload(put 'chime-modeline-string 'risky-local-variable t)
 (put 'chime-modeline-string 'risky-local-variable t)
+
+;;;; Event Data Contract
+
+;; Internal events are serialized through async.el, so they intentionally use a
+;; plain alist instead of markers or structs.  Keep all production event
+;; construction funneled through `chime--make-event' so the shape stays explicit.
+;;
+;; Example:
+;;   ((times . (("<2026-05-10 Sun 09:30>" . (26760 32460))))
+;;    (title . "Planning")
+;;    (intervals . ((10 . medium) (0 . high)))
+;;    (marker-file . "/path/to/agenda.org")
+;;    (marker-pos . 1234))
+
+(defconst chime--event-required-keys '(times title intervals)
+  "Required keys for internal Chime event alists.")
+
+(defun chime--event-times (event)
+  "Return EVENT's timestamp entries.
+Each entry is (TIMESTAMP-STRING . PARSED-TIME).  PARSED-TIME is nil for
+all-day timestamps."
+  (cdr (assoc 'times event)))
+
+(defun chime--event-title (event)
+  "Return EVENT's display title."
+  (cdr (assoc 'title event)))
+
+(defun chime--event-intervals (event)
+  "Return EVENT's alert intervals."
+  (cdr (assoc 'intervals event)))
+
+(defun chime--event-marker-file (event)
+  "Return EVENT's source org file path, or nil for synthesized events."
+  (cdr (assoc 'marker-file event)))
+
+(defun chime--event-marker-pos (event)
+  "Return EVENT's source buffer position, or nil for synthesized events."
+  (cdr (assoc 'marker-pos event)))
+
+(defun chime--event-time-entry-p (entry)
+  "Return non-nil when ENTRY matches Chime's timestamp entry contract."
+  (and (consp entry)
+       (stringp (car entry))
+       (let ((time-value (cdr entry)))
+         (or (null time-value)
+             (listp time-value)
+             (numberp time-value)))))
+
+(defun chime--event-interval-entry-p (entry)
+  "Return non-nil when ENTRY matches Chime's alert interval contract."
+  (and (consp entry)
+       (integerp (car entry))
+       (<= 0 (car entry))
+       (memq (cdr entry) '(high medium low))))
+
+(defun chime--valid-event-p (event)
+  "Return non-nil when EVENT follows Chime's internal event alist contract.
+
+The canonical event alist has these keys:
+- `times': list of (TIMESTAMP-STRING . PARSED-TIME) entries
+- `title': sanitized display string
+- `intervals': list of (MINUTES . SEVERITY) alert intervals
+- `marker-file': optional source org file path
+- `marker-pos': optional source buffer position
+
+`marker-file' and `marker-pos' are stored instead of marker objects so events
+can cross the async process boundary."
+  (and (listp event)
+       (--all? (assoc it event) chime--event-required-keys)
+       (listp (chime--event-times event))
+       (--all? (chime--event-time-entry-p it)
+               (chime--event-times event))
+       (stringp (chime--event-title event))
+       (listp (chime--event-intervals event))
+       (--all? (chime--event-interval-entry-p it)
+               (chime--event-intervals event))
+       (let ((marker-file (chime--event-marker-file event))
+             (marker-pos (chime--event-marker-pos event)))
+         (and (or (null marker-file) (stringp marker-file))
+              (or (null marker-pos) (integerp marker-pos))))))
+
+(defun chime--make-event (times title intervals &optional marker-file marker-pos)
+  "Create an internal Chime event alist.
+TIMES, TITLE, INTERVALS, MARKER-FILE, and MARKER-POS follow the contract
+documented by `chime--valid-event-p'."
+  (let ((event `((times . ,times)
+                 (title . ,title)
+                 (intervals . ,intervals)
+                 (marker-file . ,marker-file)
+                 (marker-pos . ,marker-pos))))
+    (unless (chime--valid-event-p event)
+      (error "Invalid Chime event: %S" event))
+    event))
 
 ;;;; Time/Date Utilities
 
@@ -663,8 +891,8 @@ Each pair is ((TIMESTAMP . TIME-VALUE) (MINUTES . SEVERITY))."
   ;; then filter to pairs where the timestamp falls within the interval window.
   ;; Each result is ((ts-str . time-val) (minutes . severity)).
   (->> (list
-        (chime--filter-day-wide-events (cdr (assoc 'times event)))
-        (cdr (assoc 'intervals event)))
+        (chime--filter-day-wide-events (chime--event-times event))
+        (chime--event-intervals event))
          (apply '-table-flat (lambda (ts int) (list ts int)))
          ;; -table-flat pairs nil with intervals when times list is empty
          (--filter (not (null (car it))))
@@ -721,7 +949,7 @@ Returns empty string if TITLE is nil."
 STR-INTERVAL is (TIMESTAMP-STRING . (MINUTES . SEVERITY)).
 Format is controlled by `chime-notification-text-format'.
 Title is truncated per `chime-max-title-length' if set."
-  (let* ((title (cdr (assoc 'title event)))
+  (let* ((title (chime--event-title event))
          (minutes (car (cdr str-interval))))
     (format-spec chime-notification-text-format
                  `((?t . ,(chime--truncate-title title))
@@ -795,7 +1023,7 @@ When nil:
 (defun chime--event-has-any-day-wide-timestamp (event)
   "Check if EVENT has any day-wide (no time component) timestamps."
   (--any (not (chime--has-timestamp (car it)))
-         (cdr (assoc 'times event))))
+         (chime--event-times event)))
 
 (defun chime--event-within-advance-notice-window (event)
   "Check if EVENT has any day-wide timestamps within advance notice window.
@@ -806,7 +1034,7 @@ where N is `chime-day-wide-advance-notice'."
            ;; Calculate time range: start of tomorrow to end of N days from now
            (window-end (time-add now (seconds-to-time
                                       (* 86400 (1+ chime-day-wide-advance-notice)))))
-           (all-times (cdr (assoc 'times event))))
+           (all-times (chime--event-times event)))
       (--any
        (when-let* ((timestamp-str (car it))
                    ;; Only check all-day events (those without time component)
@@ -844,7 +1072,7 @@ For all-day events, checks if the date is today or earlier."
                      (day (nth 3 parsed)))
            (let ((event-date (encode-time 0 0 0 day month year)))
              (not (time-less-p today-start event-date))))))
-     (cdr (assoc 'times event)))))
+     (chime--event-times event))))
 
 (defun chime--event-is-today (event)
   "Check if EVENT has any timestamps that are specifically today (not past days).
@@ -871,7 +1099,7 @@ For timed events, checks if the time is today (past or future)."
                      (month (nth 4 parsed))
                      (day (nth 3 parsed)))
            (time-equal-p (encode-time 0 0 0 day month year) today-start))))
-     (cdr (assoc 'times event)))))
+     (chime--event-times event))))
 
 (defun chime--days-until-event (all-times)
   "Calculate minimum days until the soonest all-day timestamp in ALL-TIMES.
@@ -894,7 +1122,7 @@ Returns integer days (ceiling), or nil if no all-day timestamps found."
 (defun chime--day-wide-notification-text (event)
   "Generate notification text for day-wide EVENT.
 Handles both same-day events and advance notices."
-  (let* ((title (cdr (assoc 'title event)))
+  (let* ((title (chime--event-title event))
          (is-today (chime--event-has-any-passed-time event))
          (is-advance-notice (and chime-day-wide-advance-notice
                                 (chime--event-within-advance-notice-window event))))
@@ -902,7 +1130,7 @@ Handles both same-day events and advance notices."
      (is-today
       (format "%s is due or scheduled today" title))
      (is-advance-notice
-      (let ((days-until (chime--days-until-event (cdr (assoc 'times event)))))
+      (let ((days-until (chime--days-until-event (chime--event-times event))))
         (cond
          ((= days-until 1) (format "%s is tomorrow" title))
          ((= days-until 2) (format "%s is in 2 days" title))
@@ -913,8 +1141,14 @@ Handles both same-day events and advance notices."
 ;;;; Event Checking & Navigation
 
 (defun chime--check-event (event)
-  "Get notifications for given EVENT.
-Returns a list of (MESSAGE . SEVERITY) cons cells."
+  "Return notification messages currently due for EVENT.
+EVENT must follow the internal event contract documented by
+`chime--valid-event-p'.  Each timestamp in EVENT is paired with each
+configured alert interval; pairs whose timestamp equals current time plus
+the interval become user-facing (MESSAGE . SEVERITY) cons cells.
+
+All-day timestamps are ignored here because day-wide notifications are
+scheduled separately by `chime--day-wide-notifications'."
   ;; Each notif from chime--notifications is ((ts-str . time-val) (min . sev))
   (->> (chime--notifications event)
        (--map (let* ((notif it)
@@ -930,8 +1164,8 @@ Returns a list of (MESSAGE . SEVERITY) cons cells."
   "Jump to EVENT's org entry in its file.
 Reconstructs marker from serialized file path and position."
   (interactive)
-  (when-let* ((file (cdr (assoc 'marker-file event)))
-              (pos (cdr (assoc 'marker-pos event))))
+  (when-let* ((file (chime--event-marker-file event))
+              (pos (chime--event-marker-pos event)))
     (when (file-exists-p file)
       (find-file file)
       (goto-char pos)
@@ -960,22 +1194,46 @@ Reconstructs marker from serialized file path and position."
   "Format a single event line for tooltip display.
 EVENT-TIME-STR is the time string, MINUTES-UNTIL is minutes until event,
 TITLE is the event title."
-  (let ((time-display (chime--get-hh-mm-from-org-time-string event-time-str))
-        (countdown (cond
-                    ((< minutes-until 1440) ;; Less than 24 hours
-                     (format "(%s)" (chime--time-left (* minutes-until 60))))
-                    (t
-                     ;; 24+ hours: show days and hours
-                     (let* ((days (truncate (/ minutes-until 1440)))
-                            (remaining-minutes (truncate (mod minutes-until 1440)))
-                            (hours (truncate (/ remaining-minutes 60))))
-                       (if (> hours 0)
-                           (format "(in %d day%s %d hour%s)"
-                                   days (if (= days 1) "" "s")
-                                   hours (if (= hours 1) "" "s"))
-                         (format "(in %d day%s)"
-                                 days (if (= days 1) "" "s"))))))))
-    (format "%s at %s %s" title time-display countdown)))
+  (let* ((title (or title ""))
+         (time-display (or (chime--get-hh-mm-from-org-time-string event-time-str) ""))
+         (countdown (cond
+                     ((< minutes-until 1440) ;; Less than 24 hours
+                      (format chime-tooltip-countdown-wrapper
+                              (chime--time-left (* minutes-until 60))))
+                     (t
+                      ;; 24+ hours: show days and hours
+                      (let* ((days (truncate (/ minutes-until 1440)))
+                             (remaining-minutes (truncate (mod minutes-until 1440)))
+                             (hours (truncate (/ remaining-minutes 60)))
+                             (day-label (if (= days 1)
+                                            (car chime-tooltip-day-unit-labels)
+                                          (cdr chime-tooltip-day-unit-labels)))
+                             (hour-label (if (= hours 1)
+                                             (car chime-tooltip-hour-unit-labels)
+                                           (cdr chime-tooltip-hour-unit-labels)))
+                             (countdown-text (if (> hours 0)
+                                                 (format "%s %d %s %d %s"
+                                                         chime-tooltip-countdown-prefix
+                                                         days day-label
+                                                         hours hour-label)
+                                               (format "%s %d %s"
+                                                       chime-tooltip-countdown-prefix
+                                                       days day-label))))
+                        (format chime-tooltip-countdown-wrapper countdown-text))))))
+    (replace-regexp-in-string
+     "%[tTu]"
+     (lambda (placeholder)
+       (pcase placeholder
+         ("%t" title)
+         ("%T" time-display)
+         ("%u" countdown)
+         (_ placeholder)))
+     chime-tooltip-event-format t t)))
+
+(defun chime--tooltip-relative-day-format (label)
+  "Return tooltip relative day format with LABEL substituted."
+  (replace-regexp-in-string "%s" label chime-tooltip-relative-day-format
+                            t t))
 
 (defun chime--day-label-for-event-time (event-time now tomorrow)
   "Return the date-group label for EVENT-TIME.
@@ -991,17 +1249,24 @@ Otherwise returns the full weekday and date, e.g. \"Wednesday, Nov 05\"."
      ((and (= (decoded-time-day event-decoded) (decoded-time-day now-decoded))
            (= (decoded-time-month event-decoded) (decoded-time-month now-decoded))
            (= (decoded-time-year event-decoded) (decoded-time-year now-decoded)))
-      (format-time-string "Today, %b %d" now))
+      (format-time-string
+       (chime--tooltip-relative-day-format chime-tooltip-today-label)
+       now))
      ((and (= (decoded-time-day event-decoded) (decoded-time-day tomorrow-decoded))
            (= (decoded-time-month event-decoded) (decoded-time-month tomorrow-decoded))
            (= (decoded-time-year event-decoded) (decoded-time-year tomorrow-decoded)))
-      (format-time-string "Tomorrow, %b %d" tomorrow))
+      (format-time-string
+       (chime--tooltip-relative-day-format chime-tooltip-tomorrow-label)
+       tomorrow))
      (t
-      (format-time-string "%A, %b %d" event-time)))))
+      (format-time-string chime-tooltip-future-day-format event-time)))))
 
 (defun chime--group-events-by-day (upcoming-events)
   "Group UPCOMING-EVENTS by day.
-Returns an alist of (DATE-STRING . EVENTS-LIST)."
+UPCOMING-EVENTS is a list of \\=(EVENT TIME-INFO MINUTES-UNTIL) tuples, as
+stored in `chime--upcoming-events'.  Returns an alist of
+\\=(DATE-STRING . EVENTS-LIST), preserving the order of first appearance in
+UPCOMING-EVENTS."
   (let* ((grouped '())
          (now (current-time))
          (tomorrow (time-add now (days-to-time 1))))
@@ -1016,7 +1281,9 @@ Returns an alist of (DATE-STRING . EVENTS-LIST)."
     (nreverse grouped)))
 
 (defun chime--make-tooltip (upcoming-events)
-  "Generate tooltip text showing UPCOMING-EVENTS grouped by day."
+  "Generate tooltip text showing UPCOMING-EVENTS grouped by day.
+UPCOMING-EVENTS is a list of (EVENT TIME-INFO MINUTES-UNTIL) tuples.
+The result is plain text suitable for the modeline `help-echo' property."
   (if (null upcoming-events)
       nil
     (let* ((max-events (or chime-modeline-tooltip-max-events (length upcoming-events)))
@@ -1030,22 +1297,23 @@ Returns an alist of (DATE-STRING . EVENTS-LIST)."
         (let ((date-str (car day-group))
               (day-events (cdr day-group)))
           (push (format "\n%s:\n" date-str) lines)
-          (push "─────────────\n" lines)
+          (push (format "%s\n" chime-tooltip-section-separator) lines)
           ;; Each item is (event (ts-str . time-val) minutes-until)
           (dolist (item day-events)
             (let* ((event (car item))
                    (event-time-str (car (nth 1 item)))
                    (minutes-until (nth 2 item))
-                   (title (cdr (assoc 'title event))))
+                   (title (chime--event-title event)))
               (push (format "%s\n"
                            (chime--format-event-for-tooltip
                             event-time-str minutes-until title))
                     lines)))))
       ;; Add "... and N more" if needed
       (when (> remaining 0)
-        (push (format "\n... and %d more event%s"
-                     remaining
-                     (if (> remaining 1) "s" ""))
+        (push (format "\n%s"
+                      (format chime-tooltip-more-events-format
+                              remaining
+                              (if (> remaining 1) "s" "")))
               lines))
       (apply #'concat (nreverse lines)))))
 
@@ -1063,10 +1331,12 @@ Returns an alist of (DATE-STRING . EVENTS-LIST)."
          (header (format-time-string chime-tooltip-header-format))
          (increase-var "chime-tooltip-lookahead-hours"))
     (concat header "\n"
-            "─────────────────────\n"
-            (format "No calendar events in\nthe next %s.\n\n" timeframe)
-            (format "Increase `%s`\nto expand scope.\n\n" increase-var)
-            "Left-click: Open calendar")))
+            chime-tooltip-no-events-separator "\n"
+            (format "%s\n\n"
+                    (format chime-tooltip-no-events-format timeframe))
+            (format "%s\n\n"
+                    (format chime-tooltip-increase-lookahead-format increase-var))
+            chime-tooltip-left-click-label)))
 
 (defun chime--propertize-modeline-string (text)
   "Add tooltip and click handlers to modeline TEXT.
@@ -1105,11 +1375,11 @@ marker; those collapse to a single soonest tooltip line."
     (dolist (item upcoming-events)
       (let* ((event (car item))
              (minutes (caddr item))
-             (marker-file (cdr (assoc 'marker-file event)))
-             (marker-pos (cdr (assoc 'marker-pos event)))
+             (marker-file (chime--event-marker-file event))
+             (marker-pos (chime--event-marker-pos event))
              (key (if (and marker-file marker-pos)
                       (cons marker-file marker-pos)
-                    (cdr (assoc 'title event))))
+                    (chime--event-title event)))
              (existing (gethash key id-hash)))
         (when (or (not existing)
                   (< minutes (caddr existing)))
@@ -1138,13 +1408,15 @@ Returns (TIME-STRING . TIME-OBJECT MINUTES-UNTIL) or nil if none found."
 
 (defun chime--build-upcoming-events-list (events now tooltip-lookahead-minutes show-all-day-p)
   "Build list of upcoming events within TOOLTIP-LOOKAHEAD-MINUTES from NOW.
-EVENTS is the list of events to process.
-If SHOW-ALL-DAY-P is non-nil, include all-day events in the list.
+EVENTS is the list of internal event alists to process.  If
+SHOW-ALL-DAY-P is non-nil, all-day timestamps are eligible for tooltip
+display; otherwise only timed timestamps are considered.
+
 Returns sorted, deduplicated list of (EVENT TIME-INFO MINUTES-UNTIL) tuples."
   (let ((upcoming '()))
     ;; Collect events with their soonest timestamp within tooltip window
     (dolist (event events)
-      (let* ((all-times (cdr (assoc 'times event)))
+      (let* ((all-times (chime--event-times event))
              (times-for-tooltip (if show-all-day-p
                                     all-times
                                   (chime--filter-day-wide-events all-times)))
@@ -1160,15 +1432,20 @@ Returns sorted, deduplicated list of (EVENT TIME-INFO MINUTES-UNTIL) tuples."
 
 (defun chime--find-soonest-modeline-event (events now modeline-lookahead-minutes)
   "Find soonest timed event for modeline from EVENTS.
-NOW is the current time.  Search is limited to events within
-MODELINE-LOOKAHEAD-MINUTES of NOW.
-Returns (EVENT TIME-STR MINUTES-UNTIL EVENT-TEXT) or nil if none found."
+EVENTS is a list of internal event alists.  NOW is the reference time.
+Search is limited to timed timestamps within MODELINE-LOOKAHEAD-MINUTES
+of NOW.  All-day timestamps are deliberately excluded because the modeline
+shows a clock-relative next event, while all-day awareness belongs in the
+day-wide notification and tooltip paths.
+
+Returns (EVENT TIME-STR MINUTES-UNTIL EVENT-TEXT), or nil if no timed
+event falls inside the modeline window."
   (let ((soonest-event nil)
         (soonest-event-text nil)
         (soonest-minutes nil)
         (soonest-time-info nil))
     (dolist (event events)
-      (let* ((all-times (cdr (assoc 'times event)))
+      (let* ((all-times (chime--event-times event))
              ;; Always filter all-day events for modeline (need specific time)
              (times-for-modeline (chime--filter-day-wide-events all-times))
              (soonest (chime--find-soonest-time-in-window
@@ -1213,10 +1490,17 @@ Returns a propertized string, or nil when nothing should be shown."
                   'local-map map)))))
 
 (defun chime--update-modeline (events)
-  "Update modeline with next upcoming event from EVENTS.
-Orchestrates filtering, finding soonest event, and updating display.
-Shows soonest event within `chime-modeline-lookahead-minutes' in modeline.
-Tooltip shows events within `chime-tooltip-lookahead-hours' hours."
+  "Update Chime's modeline cache and rendered modeline text from EVENTS.
+EVENTS is a list of internal event alists returned by
+`chime--retrieve-events'.  This function computes two related views:
+
+- `chime-modeline-string' shows the soonest timed event inside
+  `chime-modeline-lookahead-minutes'.
+- `chime--upcoming-events' stores sorted tooltip tuples for all events
+  inside `chime-tooltip-lookahead-hours'.
+
+When the modeline is disabled, or its lookahead is nil/zero, both caches
+are cleared so stale tooltip click targets are not left behind."
   (if (or (not chime-enable-modeline)
           (not chime-modeline-lookahead-minutes)
           (zerop chime-modeline-lookahead-minutes))
@@ -1334,7 +1618,12 @@ because that is what real org-gcal exports use."
                          chime-additional-environment-regexes))))))
 
 (defun chime--retrieve-events ()
-  "Get events from agenda view."
+  "Return an async child-process form that retrieves Chime events.
+The returned lambda runs in a separate Emacs process so agenda parsing,
+filtering, and timestamp extraction do not block the user's interactive
+session.  It reconstructs enough parent configuration with
+`async-inject-variables' to build the same agenda view, then returns a
+list of internal event alists."
   ;; Returns a backquoted lambda that runs in a separate Emacs process via async.
   ;; The unquoted ,(async-inject-variables ...) splices variable bindings from
   ;; the parent process; everything else executes in the child.
@@ -1355,9 +1644,8 @@ because that is what real org-gcal exports use."
     ;; warning that won't break event retrieval.
     (require 'org-contacts nil t)
 
-    ;; Calculate agenda span based on max lookahead (convert to days, round up)
-    ;; Use the larger of modeline-lookahead (minutes) and tooltip-lookahead (hours) to ensure
-    ;; we fetch enough events for both. Add 1 day buffer to account for partial days.
+    ;; Fetch enough agenda days to satisfy both the modeline and tooltip.
+    ;; The extra day covers partial-day lookaheads near midnight.
     (let* ((tooltip-lookahead-minutes (if chime-tooltip-lookahead-hours
                                            (* chime-tooltip-lookahead-hours 60)
                                          chime-modeline-lookahead-minutes))
@@ -1426,10 +1714,18 @@ Returns converted hour in 24-hour format (0-23):
      (t hour))))
 
 (defun chime--timestamp-parse (timestamp &optional context)
-  "Parse TIMESTAMP and return time in list-of-integer format.
-Returns nil if parsing fails or timestamp is malformed.
-Optional CONTEXT string is included in error messages to help
-identify the source (e.g., event title)."
+  "Parse timed org TIMESTAMP into Chime's serialized time value.
+Returns a two-integer Emacs time list suitable for async serialization, or
+nil when TIMESTAMP is nil, malformed, all-day, or otherwise unparsable.
+
+TIMESTAMP must be an org timestamp string with a clock component, such as
+\"<2026-05-10 Sun 09:30>\" or \"<2026-05-10 Sun 9:30am>\".  Repeating
+timestamps are resolved through `org-closest-date' relative to today, so a
+recurring event contributes the nearest relevant occurrence rather than the
+literal date embedded in the source text.
+
+Optional CONTEXT is included in parse error messages and is typically the
+event title."
   (condition-case err
       (when (and timestamp
                  (stringp timestamp)
@@ -1541,7 +1837,11 @@ For regular org events:
   - Fall back to plain timestamps in entry body
 
 Timestamps are extracted as cons cells:
-\(org-formatted-string . parsed-time)."
+\(org-formatted-string . parsed-time).
+
+The org-gcal branch is intentionally stricter than regular org extraction:
+org-gcal keeps the authoritative event time in its :org-gcal: drawer, while
+planning lines can lag behind after remote calendar edits."
   (org-with-point-at marker
     (let ((is-gcal-event (org-entry-get marker "entry-id"))
           (heading (nth 4 (org-heading-components))))
@@ -1554,7 +1854,12 @@ Timestamps are extracted as cons cells:
 
 (defun chime--sanitize-title (title)
   "Sanitize TITLE to prevent Lisp read syntax errors during async serialization.
-Balances unmatched parentheses, brackets, and braces by adding matching pairs.
+TITLE comes from `org-heading-components' and is later carried through
+async.el as part of an event alist.  Unbalanced delimiters in headings can
+produce strings that are awkward to serialize or inspect in tests, so this
+helper removes unmatched closing delimiters and appends matching closing
+delimiters for unmatched openings.
+
 Returns sanitized title or empty string if TITLE is nil."
   (if (not title)
       ""
@@ -1617,25 +1922,103 @@ MARKER acts like event's identifier.
 Returns file path and position instead of marker object for proper
 async serialization (markers can't be serialized across processes,
 especially when buffer names contain angle brackets)."
-  `((times . ,(chime--extract-time marker))
-    (title . ,(chime--extract-title marker))
-    (intervals . ,chime-alert-intervals)
-    (marker-file . ,(buffer-file-name (marker-buffer marker)))
-    (marker-pos . ,(marker-position marker))))
+  (chime--make-event
+   (chime--extract-time marker)
+   (chime--extract-title marker)
+   chime-alert-intervals
+   (buffer-file-name (marker-buffer marker))
+   (marker-position marker)))
 
 ;;;; Configuration Validation
 
-(defun chime--display-validation-results (issues)
-  "Display validation ISSUES via message/warning system.
-ISSUES is a list of (SEVERITY MESSAGE) pairs."
-  (if (null issues)
-      (message "Chime: ✓ All validation checks passed!")
-    (let ((errors (cl-remove-if-not (lambda (i) (eq (car i) :error)) issues))
-          (warnings (cl-remove-if-not (lambda (i) (eq (car i) :warning)) issues)))
-      (dolist (err errors)
-        (display-warning 'chime (cadr err) :error))
-      (dolist (warn warnings)
-        (display-warning 'chime (cadr warn) :warning)))))
+(defun chime--missing-org-agenda-files-message (missing)
+  "Return validation warning text for missing org agenda file entries MISSING."
+  (format "%d org-agenda-files entries don't exist:\n  %s\n\nChime will skip these during event checks."
+          (length missing)
+          (mapconcat (lambda (path)
+                       (format "%s (%s)" path
+                               (if (string-suffix-p "/" path)
+                                   "directory" "file")))
+                     missing "\n  ")))
+
+(defun chime--configuration-check-results ()
+  "Return full configuration validation check results.
+Each result has shape (SEVERITY DESCRIPTION MESSAGE), where SEVERITY is
+`:ok', `:warning', or `:error'.  DESCRIPTION names the check performed.
+MESSAGE is nil for passing checks and contains issue details otherwise."
+  (let* ((agenda-files-valid
+          (and (boundp 'org-agenda-files)
+               org-agenda-files
+               (listp org-agenda-files)
+               (> (length org-agenda-files) 0)))
+         (results
+          (list
+           (if agenda-files-valid
+               (list :ok "org-agenda-files is set" nil)
+             (list :error
+                   "org-agenda-files is set"
+                   "Org-agenda-files is not set or empty.\nChime cannot check for events without org files to monitor.\n\nSet org-agenda-files in your config:\n  (setq org-agenda-files '(\"~/org/inbox.org\" \"~/org/work.org\"))")))))
+
+    (when agenda-files-valid
+      (let ((missing (cl-remove-if #'file-exists-p org-agenda-files)))
+        (push (if missing
+                  (list :warning
+                        (format "org-agenda-files entries exist on disk (%d entries)"
+                                (length org-agenda-files))
+                        (chime--missing-org-agenda-files-message missing))
+                (list :ok
+                      (format "org-agenda-files entries exist on disk (%d entries)"
+                              (length org-agenda-files))
+                      nil))
+              results)))
+
+    (push (if (require 'org-agenda nil t)
+              (list :ok "org-agenda is loadable" nil)
+            (list :error
+                  "org-agenda is loadable"
+                  "Cannot load org-agenda\nEnsure org-mode is installed and available in load-path"))
+          results)
+
+    (push (if chime-enable-modeline
+              (if (boundp 'global-mode-string)
+                  (list :ok "global-mode-string is available" nil)
+                (list :warning
+                      "global-mode-string is available"
+                      "global-mode-string not available.\nModeline display may not work in this Emacs version."))
+            (list :ok "global-mode-string check skipped because modeline is disabled" nil))
+          results)
+
+    (nreverse results)))
+
+(defun chime--validation-issues-from-results (results)
+  "Project validation RESULTS to public (SEVERITY MESSAGE) issue pairs."
+  (->> results
+       (cl-remove-if (lambda (result) (eq (car result) :ok)))
+       (mapcar (lambda (result) (list (car result) (caddr result))))))
+
+(defun chime--display-validation-results (results)
+  "Display full validation RESULTS in the *Messages* buffer."
+  (let ((errors 0)
+        (warnings 0))
+    (message "Chime: Validating configuration...")
+    (dolist (result results)
+      (pcase-let ((`(,severity ,description ,detail) result))
+        (pcase severity
+          (:error (cl-incf errors))
+          (:warning (cl-incf warnings)))
+        (message "[%s]   %s"
+                 (pcase severity
+                   (:ok "ok")
+                   (:warning "warn")
+                   (:error "error"))
+                 description)
+        (when detail
+          (message "        %s" detail))))
+    (message "Chime: %d error%s, %d warning%s."
+             errors
+             (if (= errors 1) "" "s")
+             warnings
+             (if (= warnings 1) "" "s"))))
 
 ;;;###autoload
 (defun chime-validate-configuration ()
@@ -1649,48 +2032,14 @@ Checks performed:
 - `org-agenda' package is loadable
 - `global-mode-string' available (for modeline display)
 
-When called interactively, displays results via message/warning system.
+When called interactively, displays all check results in the *Messages*
+buffer.
 When called programmatically, returns structured validation results."
   (interactive)
-  (let ((issues '()))
-
-    ;; Critical: org-agenda-files must be set and non-empty
-    (unless (and (boundp 'org-agenda-files)
-                 org-agenda-files
-                 (listp org-agenda-files)
-                 (> (length org-agenda-files) 0))
-      (push '(:error "Org-agenda-files is not set or empty.\nChime cannot check for events without org files to monitor.\n\nSet org-agenda-files in your config:\n  (setq org-agenda-files '(\"~/org/inbox.org\" \"~/org/work.org\"))")
-            issues))
-
-    ;; Warning: Check if files/directories actually exist
-    (when (and (boundp 'org-agenda-files)
-               org-agenda-files
-               (listp org-agenda-files))
-      (let ((missing (cl-remove-if #'file-exists-p org-agenda-files)))
-        (when missing
-          (push `(:warning ,(format "%d org-agenda-files entries don't exist:\n  %s\n\nChime will skip these during event checks."
-                                   (length missing)
-                                   (mapconcat (lambda (path)
-                                                (format "%s (%s)" path
-                                                        (if (string-suffix-p "/" path)
-                                                            "directory" "file")))
-                                              missing "\n  ")))
-                issues))))
-
-    ;; Check org-agenda is loadable
-    (unless (require 'org-agenda nil t)
-      (push '(:error "Cannot load org-agenda\nEnsure org-mode is installed and available in load-path")
-            issues))
-
-    ;; Check modeline support (if enabled)
-    (when (and chime-enable-modeline
-               (not (boundp 'global-mode-string)))
-      (push '(:warning "global-mode-string not available.\nModeline display may not work in this Emacs version.")
-            issues))
-
+  (let* ((results (chime--configuration-check-results))
+         (issues (chime--validation-issues-from-results results)))
     (when (called-interactively-p 'any)
-      (chime--display-validation-results issues))
-
+      (chime--display-validation-results results))
     issues))
 
 ;;;; Core Lifecycle
@@ -1873,11 +2222,15 @@ error and skips the check."
   "Update modeline display with latest events without sending notifications.
 
 Useful after external calendar sync operations (e.g., org-gcal-sync).
-Does nothing if a check is already in progress in the background."
+Does nothing if a check is already in progress in the background.
+
+Validates configuration through the same startup gate as `chime-check'
+before fetching events."
   (interactive)
-  (chime--fetch-and-process
-   (lambda (events)
-     (chime--update-modeline events))))
+  (when (chime--maybe-validate)
+    (chime--fetch-and-process
+     (lambda (events)
+       (chime--update-modeline events)))))
 
 (defun chime--set-modeline-error-state (error-message)
   "Update modeline icon tooltip to show ERROR-MESSAGE.

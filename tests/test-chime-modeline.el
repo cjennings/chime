@@ -32,6 +32,7 @@
 ;; Load test utilities
 (require 'testutil-general (expand-file-name "testutil-general.el"))
 (require 'testutil-time (expand-file-name "testutil-time.el"))
+(require 'testutil-events (expand-file-name "testutil-events.el"))
 
 ;;; Setup and Teardown
 
@@ -204,15 +205,14 @@ REFACTORED: Uses dynamic timestamps"
 
           ;; Generate tooltip
           (let ((tooltip (chime--make-tooltip chime--upcoming-events)))
-            (message "DEBUG: Tooltip content:\n%s" tooltip)
+            (ert-info ((format "Tooltip content:\n%s" tooltip))
+              ;; Tooltip should contain "Team Meeting" exactly once
+              (let ((count (test-chime-modeline--count-in-string "Team Meeting" tooltip)))
+                (should (= 1 count)))
 
-            ;; Tooltip should contain "Team Meeting" exactly once
-            (let ((count (test-chime-modeline--count-in-string "Team Meeting" tooltip)))
-              (should (= 1 count)))
-
-            ;; "Upcoming Events" header should appear exactly once
-            (let ((header-count (test-chime-modeline--count-in-string "Upcoming Events" tooltip)))
-              (should (= 1 header-count))))))
+              ;; "Upcoming Events" header should appear exactly once
+              (let ((header-count (test-chime-modeline--count-in-string "Upcoming Events" tooltip)))
+                (should (= 1 header-count)))))))
     (test-chime-modeline-teardown)))
 
 (ert-deftest test-chime-modeline-tooltip-correct-order ()
@@ -244,14 +244,13 @@ REFACTORED: Uses dynamic timestamps"
 
           ;; Generate tooltip
           (let ((tooltip (chime--make-tooltip chime--upcoming-events)))
-            (message "DEBUG: Tooltip for order test:\n%s" tooltip)
-
-            ;; "Meeting A" should appear before "Meeting B" in tooltip
-            (let ((pos-a (string-match "Meeting A" tooltip))
-                  (pos-b (string-match "Meeting B" tooltip)))
-              (should pos-a)
-              (should pos-b)
-              (should (< pos-a pos-b))))))
+            (ert-info ((format "Tooltip content:\n%s" tooltip))
+              ;; "Meeting A" should appear before "Meeting B" in tooltip
+              (let ((pos-a (string-match "Meeting A" tooltip))
+                    (pos-b (string-match "Meeting B" tooltip)))
+                (should pos-a)
+                (should pos-b)
+                (should (< pos-a pos-b)))))))
     (test-chime-modeline-teardown)))
 
 (ert-deftest test-chime-modeline-tooltip-structure ()
@@ -283,17 +282,112 @@ REFACTORED: Uses dynamic timestamps"
 
           ;; Generate tooltip
           (let ((tooltip (chime--make-tooltip chime--upcoming-events)))
-            (message "DEBUG: Tooltip structure:\n%s" tooltip)
+            (ert-info ((format "Tooltip content:\n%s" tooltip))
+              ;; Should have exactly one "Upcoming Events" header
+              (should (= 1 (test-chime-modeline--count-in-string "Upcoming Events" tooltip)))
 
-            ;; Should have exactly one "Upcoming Events" header
-            (should (= 1 (test-chime-modeline--count-in-string "Upcoming Events" tooltip)))
+              ;; Should start with "Upcoming Events as of" (new header format with timestamp)
+              (should (string-match-p "^Upcoming Events as of" tooltip))
 
-            ;; Should start with "Upcoming Events as of" (new header format with timestamp)
-            (should (string-match-p "^Upcoming Events as of" tooltip))
-
-            ;; Event should appear exactly once
-            (should (= 1 (test-chime-modeline--count-in-string "Team Meeting" tooltip))))))
+              ;; Event should appear exactly once
+              (should (= 1 (test-chime-modeline--count-in-string "Team Meeting" tooltip)))))))
     (test-chime-modeline-teardown)))
+
+(ert-deftest test-chime-modeline-tooltip-custom-event-format ()
+  "Tooltip event line uses chime-tooltip-event-format."
+  (test-chime-modeline-setup)
+  (unwind-protect
+      (let* ((now (test-time-now))
+             (event-time (test-time-tomorrow-at 14 0))
+             (event (test-make-simple-event "Team Meeting" event-time))
+             (upcoming (list (list event
+                                   (cons (test-timestamp-string event-time)
+                                         event-time)
+                                   1440)))
+             (chime-tooltip-event-format "%T -- %t -- %u"))
+        (with-test-time now
+          (let ((tooltip (chime--make-tooltip upcoming)))
+            (should (string-match-p "02:00 PM -- Team Meeting -- (in 1 day)" tooltip)))))
+    (test-chime-modeline-teardown)))
+
+(ert-deftest test-chime-modeline-tooltip-custom-day-labels ()
+  "Tooltip day labels use custom today, tomorrow, and future formats."
+  (test-chime-modeline-setup)
+  (unwind-protect
+      (let* ((now (test-time-today-at 9 0))
+             (today (time-add now (seconds-to-time (* 2 3600))))
+             (tomorrow (time-add now (days-to-time 1)))
+             (future (time-add now (days-to-time 3)))
+             (chime-tooltip-today-label "Hoy")
+             (chime-tooltip-tomorrow-label "Manana")
+             (chime-tooltip-relative-day-format "%s :: %Y-%m-%d")
+             (chime-tooltip-future-day-format "Dia %Y-%m-%d"))
+        (with-test-time now
+          (should (string-match-p "^Hoy :: "
+                                  (chime--day-label-for-event-time
+                                   today now tomorrow)))
+          (should (string-match-p "^Manana :: "
+                                  (chime--day-label-for-event-time
+                                   tomorrow now tomorrow)))
+          (should (string-match-p "^Dia "
+                                  (chime--day-label-for-event-time
+                                   future now tomorrow)))))
+    (test-chime-modeline-teardown)))
+
+(ert-deftest test-chime-modeline-tooltip-custom-overflow-and-separator ()
+  "Tooltip overflow and section separator strings are customizable."
+  (test-chime-modeline-setup)
+  (unwind-protect
+      (let* ((now (test-time-now))
+             (first-time (test-time-tomorrow-at 14 0))
+             (second-time (test-time-tomorrow-at 15 0))
+             (first-event (test-make-simple-event "First Event" first-time))
+             (second-event (test-make-simple-event "Second Event" second-time))
+             (upcoming (list (list first-event
+                                   (cons (test-timestamp-string first-time)
+                                         first-time)
+                                   1440)
+                             (list second-event
+                                   (cons (test-timestamp-string second-time)
+                                         second-time)
+                                   1500)))
+             (chime-modeline-tooltip-max-events 1)
+             (chime-tooltip-section-separator "---")
+             (chime-tooltip-more-events-format "plus %d hidden%s"))
+        (with-test-time now
+          (let ((tooltip (chime--make-tooltip upcoming)))
+            (should (string-match-p "---" tooltip))
+            (should (string-match-p "plus 1 hidden" tooltip))
+            (should-not (string-match-p "Second Event" tooltip)))))
+    (test-chime-modeline-teardown)))
+
+(ert-deftest test-chime-modeline-tooltip-custom-no-events-text ()
+  "No-events tooltip guidance strings are customizable."
+  (test-chime-modeline-setup)
+  (unwind-protect
+      (let ((chime-tooltip-header-format "Agenda %Y")
+            (chime-tooltip-no-events-separator "---")
+            (chime-tooltip-no-events-format "Nada por %s.")
+            (chime-tooltip-increase-lookahead-format "Aumenta %s.")
+            (chime-tooltip-left-click-label "Click: calendario"))
+        (let ((tooltip (chime--make-no-events-tooltip 120)))
+          (should (string-match-p "^Agenda " tooltip))
+          (should (string-match-p "---" tooltip))
+          (should (string-match-p "Nada por 2 hours\\." tooltip))
+          (should (string-match-p "Aumenta chime-tooltip-lookahead-hours\\." tooltip))
+          (should (string-match-p "Click: calendario" tooltip))))
+    (test-chime-modeline-teardown)))
+
+(ert-deftest test-chime-modeline-tooltip-custom-day-hour-countdown ()
+  "Tooltip-specific day/hour countdown units are customizable."
+  (let ((chime-tooltip-countdown-prefix "en")
+        (chime-tooltip-day-unit-labels '("dia" . "dias"))
+        (chime-tooltip-hour-unit-labels '("hora" . "horas")))
+    (should (string-match-p "(en 2 dias 1 hora)"
+                            (chime--format-event-for-tooltip
+                             "<2026-05-12 Tue 10:00>"
+                             2940
+                             "Evento")))))
 
 ;;; Tests for tooltip max events limit
 

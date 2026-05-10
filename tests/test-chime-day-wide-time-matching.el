@@ -37,6 +37,80 @@
 (require 'testutil-general (expand-file-name "testutil-general.el"))
 (require 'testutil-time (expand-file-name "testutil-time.el"))
 
+(defmacro test-chime-with-restored-day-wide-alert-times (&rest body)
+  "Run BODY and restore default `chime-day-wide-alert-times' afterwards."
+  (declare (indent 0) (debug t))
+  `(let ((original-value (default-value 'chime-day-wide-alert-times)))
+     (unwind-protect
+         (progn ,@body)
+       (set-default 'chime-day-wide-alert-times original-value))))
+
+;;;; Tests for chime--validate-day-wide-alert-times
+
+(ert-deftest test-chime-validate-day-wide-alert-times-accepts-24-hour ()
+  "Normal: 24-hour HH:MM entries are valid."
+  (should (equal '("08:00" "17:00")
+                 (chime--validate-day-wide-alert-times
+                  'fake-symbol '("08:00" "17:00")))))
+
+(ert-deftest test-chime-validate-day-wide-alert-times-accepts-12-hour ()
+  "Normal: Org-supported 12-hour entries are valid."
+  (should (equal '("8:00am" "5:30pm")
+                 (chime--validate-day-wide-alert-times
+                  'fake-symbol '("8:00am" "5:30pm")))))
+
+(ert-deftest test-chime-validate-day-wide-alert-times-accepts-nil ()
+  "Boundary: nil disables day-wide alerts."
+  (should (null (chime--validate-day-wide-alert-times 'fake-symbol nil))))
+
+(ert-deftest test-chime-validate-day-wide-alert-times-accepts-empty-list ()
+  "Boundary: an empty list disables day-wide alerts."
+  (should (equal '()
+                 (chime--validate-day-wide-alert-times 'fake-symbol '()))))
+
+(ert-deftest test-chime-validate-day-wide-alert-times-rejects-invalid-string ()
+  "Error: unparseable strings fail before timer matching."
+  (should-error (chime--validate-day-wide-alert-times
+                 'fake-symbol '("08:00" "not-a-time"))
+                :type 'user-error))
+
+(ert-deftest test-chime-validate-day-wide-alert-times-rejects-non-list ()
+  "Error: the value must be nil or a list."
+  (should-error (chime--validate-day-wide-alert-times
+                 'fake-symbol "08:00")
+                :type 'user-error))
+
+(ert-deftest test-chime-validate-day-wide-alert-times-rejects-non-string-entry ()
+  "Error: every configured alert time must be a string."
+  (should-error (chime--validate-day-wide-alert-times
+                 'fake-symbol '("08:00" 1700))
+                :type 'user-error))
+
+(ert-deftest test-chime-validate-day-wide-alert-times-rejects-out-of-day-time ()
+  "Error: Org durations beyond 23:59 are not valid clock times."
+  (should-error (chime--validate-day-wide-alert-times
+                 'fake-symbol '("25:00"))
+                :type 'user-error))
+
+(ert-deftest test-chime-day-wide-alert-times-setter-accepts-valid-list ()
+  "Normal: customize-time setter accepts valid alert times."
+  (test-chime-with-restored-day-wide-alert-times
+    (customize-set-variable 'chime-day-wide-alert-times '("08:00" "5:30pm"))
+    (should (equal '("08:00" "5:30pm") chime-day-wide-alert-times))))
+
+(ert-deftest test-chime-day-wide-alert-times-setter-accepts-nil ()
+  "Boundary: customize-time setter accepts nil."
+  (test-chime-with-restored-day-wide-alert-times
+    (customize-set-variable 'chime-day-wide-alert-times nil)
+    (should (null chime-day-wide-alert-times))))
+
+(ert-deftest test-chime-day-wide-alert-times-setter-rejects-invalid-list ()
+  "Error: customize-time setter rejects invalid alert times."
+  (test-chime-with-restored-day-wide-alert-times
+    (should-error (customize-set-variable
+                   'chime-day-wide-alert-times '("08:00" "nope"))
+                  :type 'user-error)))
+
 ;;;; Tests for chime--current-time-matches-time-of-day-string
 
 ;;; Normal Cases

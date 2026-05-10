@@ -128,9 +128,9 @@ Example:
                  (list (cons ts-str time))
                  '((10 . medium)))))
     (should (string= \"Meeting\" (cdr (assoc 'title event)))))"
-  `((times . ,time-alist)
-    (title . ,title)
-    (intervals . ,(or intervals '((10 . medium))))))
+  (chime--make-event time-alist
+                     title
+                     (or intervals '((10 . medium)))))
 
 (defun test-make-simple-event (title time &optional interval-minutes severity)
   "Create simple event data structure with single time and interval.
@@ -181,6 +181,19 @@ Example:
   (declare (indent 2))
   `(let ((,events-var (test-gather-events-from-content ,content)))
      ,@body))
+
+(defmacro with-chime-tooltip-from-content (content tooltip-var &rest body)
+  "Create org CONTENT, update modeline events, and bind TOOLTIP-VAR.
+The helper keeps modeline globals dynamically isolated so tests can assert on
+tooltip text without leaking `chime--upcoming-events' or `chime-modeline-string'."
+  (declare (indent 2))
+  (let ((events-var (make-symbol "events")))
+    `(let ((chime--upcoming-events nil)
+           (chime-modeline-string nil))
+       (with-gathered-events ,content ,events-var
+         (chime--update-modeline ,events-var)
+         (let ((,tooltip-var (chime--make-tooltip chime--upcoming-events)))
+           ,@body)))))
 
 ;;; Setup/Teardown Helpers
 

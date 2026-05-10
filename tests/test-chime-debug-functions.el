@@ -26,6 +26,7 @@
 ;;; Code:
 
 (setq chime-debug t)
+(require 'cl-lib)
 (require 'test-bootstrap (expand-file-name "test-bootstrap.el"))
 (require 'chime-debug (expand-file-name "../chime-debug.el"))
 
@@ -45,6 +46,13 @@
   "Teardown function run after each test."
   (chime-delete-test-base-dir)
   (setq chime--upcoming-events nil))
+
+(defmacro test-chime-debug-functions--without-echo (&rest body)
+  "Run BODY while preserving debug logs without echoing messages."
+  `(cl-letf (((symbol-function 'message)
+              (lambda (format-string &rest args)
+                (apply #'chime--log-silently format-string args))))
+     ,@body))
 
 ;;; Tests for chime-debug-dump-events
 
@@ -67,7 +75,8 @@
               (let ((inhibit-read-only t))
                 (erase-buffer)))
             ;; Call debug function
-            (chime-debug-dump-events)
+            (test-chime-debug-functions--without-echo
+              (chime-debug-dump-events))
             ;; Verify output in *Messages* buffer
             (with-current-buffer "*Messages*"
               (let ((content (buffer-string)))
@@ -85,7 +94,10 @@
         (setq chime--upcoming-events nil)
         ;; Should not error
         (should-not (condition-case nil
-                        (progn (chime-debug-dump-events) nil)
+                        (progn
+                          (test-chime-debug-functions--without-echo
+                            (chime-debug-dump-events))
+                          nil)
                       (error t))))
     (test-chime-debug-functions-teardown)))
 
@@ -110,7 +122,8 @@
               (let ((inhibit-read-only t))
                 (erase-buffer)))
             ;; Call debug function
-            (chime-debug-dump-tooltip)
+            (test-chime-debug-functions--without-echo
+              (chime-debug-dump-tooltip))
             ;; Verify output in *Messages* buffer
             (with-current-buffer "*Messages*"
               (let ((content (buffer-string)))
@@ -128,7 +141,10 @@
         (setq chime--upcoming-events nil)
         ;; Should not error
         (should-not (condition-case nil
-                        (progn (chime-debug-dump-tooltip) nil)
+                        (progn
+                          (test-chime-debug-functions--without-echo
+                            (chime-debug-dump-tooltip))
+                          nil)
                       (error t))))
     (test-chime-debug-functions-teardown)))
 
@@ -147,7 +163,8 @@
           (let ((inhibit-read-only t))
             (erase-buffer)))
         ;; Call debug function
-        (chime-debug-config)
+        (test-chime-debug-functions--without-echo
+          (chime-debug-config))
         ;; Verify output in *Messages* buffer
         (with-current-buffer "*Messages*"
           (let ((content (buffer-string)))
@@ -171,7 +188,10 @@
             (erase-buffer)))
         ;; Should not error
         (should-not (condition-case nil
-                        (progn (chime-debug-config) nil)
+                        (progn
+                          (test-chime-debug-functions--without-echo
+                            (chime-debug-config))
+                          nil)
                       (error t)))
         ;; Verify output mentions 0 files
         (with-current-buffer "*Messages*"
@@ -200,9 +220,10 @@
             ;; Call all three debug functions - should not error
             (should-not (condition-case nil
                             (progn
-                              (chime-debug-dump-events)
-                              (chime-debug-dump-tooltip)
-                              (chime-debug-config)
+                              (test-chime-debug-functions--without-echo
+                                (chime-debug-dump-events)
+                                (chime-debug-dump-tooltip)
+                                (chime-debug-config))
                               nil)
                           (error t))))))
     (test-chime-debug-functions-teardown)))

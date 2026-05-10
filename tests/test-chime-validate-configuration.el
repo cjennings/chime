@@ -15,7 +15,7 @@
 ;; External dependencies mocked:
 ;; - file-exists-p (file I/O)
 ;; - require (package loading)
-;; - display-warning (UI side effect)
+;; - message (interactive UI side effect)
 ;;
 ;; NOT mocked:
 ;; - Validation logic itself
@@ -238,35 +238,77 @@
 
 ;;; Interactive Behavior Tests
 
-(ert-deftest test-chime-validate-configuration-interactive-calls-display-warning ()
-  "Test validation displays warnings when called interactively."
+(ert-deftest test-chime-validate-configuration-interactive-prints-all-checks-with-issues ()
+  "Interactive validation prints ok, warning, error, and summary lines."
   (test-chime-validate-configuration-setup)
-  (let ((org-agenda-files nil)
-        (warning-called nil)
-        (chime-enable-modeline t))
-    (cl-letf (((symbol-function 'display-warning)
-               (lambda (&rest _) (setq warning-called t)))
+  (let ((org-agenda-files '("/exists.org" "/missing.org"))
+        (chime-enable-modeline t)
+        (messages nil))
+    (cl-letf (((symbol-function 'file-exists-p)
+               (lambda (path) (string= path "/exists.org")))
+              ((symbol-function 'require) (lambda (_ &optional _ _) t))
+              ((symbol-function 'boundp)
+               (lambda (sym) (not (eq sym 'global-mode-string))))
+              ((symbol-function 'message)
+               (lambda (format-string &rest args)
+                 (push (apply #'format format-string args) messages)))
               ((symbol-function 'called-interactively-p) (lambda (_) t)))
       (chime-validate-configuration)
-      (should warning-called)))
+      (setq messages (nreverse messages))
+      (should (member "Chime: Validating configuration..." messages))
+      (should (member "[ok]   org-agenda-files is set" messages))
+      (should (cl-some (lambda (msg)
+                        (string-match-p
+                         "\\[warn\\]   org-agenda-files entries exist on disk (2 entries)"
+                         msg))
+                      messages))
+      (should (member "[ok]   org-agenda is loadable" messages))
+      (should (member "[warn]   global-mode-string is available" messages))
+      (should (cl-some (lambda (msg)
+                        (string-match-p "/missing.org (file)" msg))
+                      messages))
+      (should (member "Chime: 0 errors, 2 warnings." messages))))
   (test-chime-validate-configuration-teardown))
 
-(ert-deftest test-chime-validate-configuration-interactive-success-shows-message ()
-  "Test validation shows success message when called interactively with valid config."
+(ert-deftest test-chime-validate-configuration-interactive-success-prints-ok-checklist ()
+  "Interactive validation prints every passing check and a zero summary."
   (test-chime-validate-configuration-setup)
   (let ((org-agenda-files '("/tmp/inbox.org"))
-        (message-shown nil)
+        (messages nil)
         (chime-enable-modeline t)
         (global-mode-string '("")))
     (cl-letf (((symbol-function 'file-exists-p) (lambda (_) t))
               ((symbol-function 'require) (lambda (_ &optional _ _) t))
               ((symbol-function 'message)
-               (lambda (fmt &rest _)
-                 (when (string-match-p "validation checks passed" fmt)
-                   (setq message-shown t))))
+               (lambda (format-string &rest args)
+                 (push (apply #'format format-string args) messages)))
               ((symbol-function 'called-interactively-p) (lambda (_) t)))
       (chime-validate-configuration)
-      (should message-shown)))
+      (setq messages (nreverse messages))
+      (should (member "Chime: Validating configuration..." messages))
+      (should (member "[ok]   org-agenda-files is set" messages))
+      (should (member "[ok]   org-agenda-files entries exist on disk (1 entries)"
+                      messages))
+      (should (member "[ok]   org-agenda is loadable" messages))
+      (should (member "[ok]   global-mode-string is available" messages))
+      (should (member "Chime: 0 errors, 0 warnings." messages))))
+  (test-chime-validate-configuration-teardown))
+
+(ert-deftest test-chime-validate-configuration-programmatic-shape-unchanged ()
+  "Programmatic validation returns only (SEVERITY MESSAGE) issue pairs."
+  (test-chime-validate-configuration-setup)
+  (let ((org-agenda-files '("/missing.org"))
+        (chime-enable-modeline t)
+        (global-mode-string '("")))
+    (cl-letf (((symbol-function 'file-exists-p) (lambda (_) nil))
+              ((symbol-function 'require) (lambda (_ &optional _ _) t))
+              ((symbol-function 'called-interactively-p) (lambda (_) nil)))
+      (let ((issues (chime-validate-configuration)))
+        (should (= 1 (length issues)))
+        (should (= 2 (length (car issues))))
+        (should (eq :warning (caar issues)))
+        (should (string-match-p "1 org-agenda-files entries don't exist"
+                                (cadar issues))))))
   (test-chime-validate-configuration-teardown))
 
 (provide 'test-chime-validate-configuration)
