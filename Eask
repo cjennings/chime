@@ -8,7 +8,11 @@
 (keywords "notification" "alert" "org" "org-agenda" "calendar")
 
 (package-file "chime.el")
-(files "chime.el" "chime-debug.el" "chime-org-contacts.el")
+(files "chime.el"
+       "chime-debug.el"
+       "chime-org-contacts.el"
+       "convert-org-contacts-birthdays.el"
+       "sounds")
 
 (source 'gnu)
 (source 'nongnu)
