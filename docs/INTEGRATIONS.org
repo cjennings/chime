@@ -1,0 +1,109 @@
+#+TITLE: Chime Integrations
+#+AUTHOR: Craig Jennings
+
+Setup notes for related org-mode packages.
+
+[[file:../README.org][README]] | [[file:CONFIGURATION.org][Configuration]] | [[file:ARCHITECTURE.org][Architecture]] | [[file:TROUBLESHOOTING.org][Troubleshooting]] | [[file:../TESTING.org][Testing]]
+
+* org-gcal
+:PROPERTIES:
+:CUSTOM_ID: org-gcal
+:END:
+
+[[https://github.com/kidd/org-gcal.el][org-gcal]] syncs Google Calendar events into org files, which is exactly what chime reads. They work well together with no special configuration as long as the org files that org-gcal writes to are in =org-agenda-files=.
+
+Typical setup:
+
+#+BEGIN_SRC elisp
+(use-package org-gcal
+  :after org
+  :config
+  (setq org-gcal-client-id "your-client-id"
+        org-gcal-client-secret "your-client-secret"
+        org-gcal-fetch-file-alist
+        '(("you@gmail.com" . "~/org/gcal.org"))))
+
+;; Make sure chime can see those events
+(add-to-list 'org-agenda-files "~/org/gcal.org")
+#+END_SRC
+
+After org-gcal syncs, run:
+
+#+BEGIN_SRC elisp
+M-x chime-refresh-modeline
+#+END_SRC
+
+That refreshes the modeline without sending notifications. Otherwise chime will pick up synced events on the next polling cycle.
+
+org-gcal commonly writes plain timestamps like:
+
+#+BEGIN_SRC org
+* Team Sync
+<2026-05-10 Sun 14:00>
+#+END_SRC
+
+Chime handles plain timestamps, SCHEDULED timestamps, and DEADLINE timestamps. If you filter by TODO keyword, remember that org-gcal events usually do not have TODO keywords unless you add them through your org-gcal templates.
+
+Chime also ships =chime-declined-events-predicate=, which filters out org-gcal entries with =:STATUS: declined=. This predicate is included in the default =chime-exclude-filters=.
+
+* org-contacts
+:PROPERTIES:
+:CUSTOM_ID: org-contacts
+:END:
+
+org-contacts birthdays are often exposed through diary sexps such as:
+
+#+BEGIN_SRC org
+%%(org-contacts-anniversaries)
+#+END_SRC
+
+Chime does not support diary sexp timestamps as event timestamps. For birthday notifications, convert contacts to standard repeating org timestamps.
+
+** Convert Existing Contacts
+
+Load the conversion script:
+
+#+BEGIN_SRC elisp
+(require 'convert-org-contacts-birthdays
+         (expand-file-name "convert-org-contacts-birthdays.el"
+                           (file-name-directory (locate-library "chime"))))
+#+END_SRC
+
+Then run:
+
+#+BEGIN_SRC elisp
+M-x chime-convert-contacts-in-place RET ~/org/contacts.org RET
+#+END_SRC
+
+The command creates a timestamped backup first, then adds yearly repeating timestamps below contacts with birthday properties. vCard export still works because the original =:BIRTHDAY:= property remains in place.
+
+After conversion, comment out the diary sexp from your schedule file:
+
+#+BEGIN_SRC org
+# %%(org-contacts-anniversaries)
+#+END_SRC
+
+** Capture Template for New Contacts
+
+The optional =chime-org-contacts= integration adds an org-capture template that prompts for contact details and inserts a yearly repeating timestamp when a birthday is provided.
+
+#+BEGIN_SRC elisp
+(setq chime-org-contacts-file "~/org/contacts.org")
+
+;; Optional: customize capture key. Default is "C".
+(setq chime-org-contacts-capture-key "C")
+
+(with-eval-after-load 'org-capture
+  (require 'chime-org-contacts))
+#+END_SRC
+
+With use-package:
+
+#+BEGIN_SRC elisp
+(use-package chime-org-contacts
+  :after org-capture
+  :init
+  (setq chime-org-contacts-file "~/org/contacts.org"))
+#+END_SRC
+
+Set =chime-org-contacts-file= to nil to disable the integration.

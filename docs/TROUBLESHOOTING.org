@@ -1,0 +1,180 @@
+#+TITLE: Chime Troubleshooting
+#+AUTHOR: Craig Jennings
+
+Debugging guide for common Chime setup issues.
+
+[[file:../README.org][README]] | [[file:CONFIGURATION.org][Configuration]] | [[file:ARCHITECTURE.org][Architecture]] | [[file:INTEGRATIONS.org][Integrations]] | [[file:../TESTING.org][Testing]]
+
+* Validate Configuration
+
+Start with:
+
+#+BEGIN_SRC elisp
+M-x chime-validate-configuration
+#+END_SRC
+
+Interactive validation prints a checklist in =*Messages*= showing whether =org-agenda-files= is set, whether files exist, whether org-agenda is loadable, and whether modeline support is available.
+
+* Enable Debug Mode
+:PROPERTIES:
+:CUSTOM_ID: enable-debug-mode
+:END:
+
+Enable debug mode before loading chime:
+
+#+BEGIN_SRC elisp
+(setq chime-debug t)
+(require 'chime)
+#+END_SRC
+
+This loads =chime-debug.el= and provides:
+
+- =M-x chime-debug-dump-events= — show stored upcoming events
+- =M-x chime-debug-dump-tooltip= — show tooltip content
+- =M-x chime-debug-config= — dump complete configuration
+- =M-x chime-debug-show-async-stats= — show async success/failure stats
+- =M-x chime-debug-force-check= — force an immediate diagnostic check
+
+Debug mode also logs event loading and async process timing to =*Messages*=.
+
+* No Notifications Appearing
+
+Check these in order:
+
+1. Verify a notification daemon is running on your system.
+   - Linux examples: =dunst=, =mako=, =swaync=
+   - macOS and Windows have built-in notification support.
+2. Verify =chime-mode= is enabled:
+   #+BEGIN_SRC elisp
+   M-: chime-mode
+   #+END_SRC
+3. Check alert.el style configuration:
+   #+BEGIN_SRC elisp
+   (setq alert-default-style 'libnotify)
+   #+END_SRC
+4. Run =M-x chime-check= manually.
+5. Check =*Messages*= for errors.
+6. Enable [[#enable-debug-mode][debug mode]] for more detail.
+
+* No Sound Playing
+
+1. Verify a sound file is configured:
+   #+BEGIN_SRC elisp
+   M-: chime-sound-file
+   #+END_SRC
+2. Check that the file exists:
+   #+BEGIN_SRC elisp
+   M-: (file-exists-p chime-sound-file)
+   #+END_SRC
+3. Test sound directly:
+   #+BEGIN_SRC elisp
+   M-: (play-sound-file chime-sound-file)
+   #+END_SRC
+4. Ensure your system has audio support configured.
+
+Set =chime-sound-file= to nil to disable sound.
+
+* Events Not Being Detected
+
+Common causes:
+
+1. The org file is not in =org-agenda-files=.
+2. The timestamp is all-day and you expected it in the modeline. All-day events do not appear in the modeline.
+3. The timestamp is a diary sexp such as =<%%(...)>=. Chime does not support those as event timestamps.
+4. Filters are excluding the event.
+5. The event is outside the modeline or tooltip lookahead window.
+
+Chime supports timed 24-hour and 12-hour timestamps:
+
+#+BEGIN_SRC org
+* 24-hour event
+<2026-05-10 Sun 14:00>
+
+* 12-hour event
+<2026-05-10 Sun 2:00pm>
+#+END_SRC
+
+* Modeline Is Empty
+
+Check:
+
+1. =chime-enable-modeline= is non-nil.
+2. =chime-modeline-lookahead-minutes= is greater than zero.
+3. There is a timed event inside the modeline lookahead.
+4. Events are visible to =org-agenda-files=.
+
+All-day events may appear in the tooltip, but never in the modeline itself.
+
+* Tooltip Has Too Many or Too Few Events
+
+Relevant settings:
+
+#+BEGIN_SRC elisp
+(setq chime-tooltip-lookahead-hours 168)
+(setq chime-modeline-tooltip-max-events 5)
+(setq chime-tooltip-show-all-day-events t)
+#+END_SRC
+
+If you increase =chime-tooltip-lookahead-hours= a lot, async checks can take longer because chime fetches a wider agenda span.
+
+* Multiple Emacs Instances Produce Duplicate Notifications
+
+If you receive duplicate notifications for every event, you likely have multiple Emacs processes running with =chime-mode= enabled.
+
+Check running Emacs processes:
+
+#+BEGIN_SRC bash
+ps aux | grep emacs
+#+END_SRC
+
+Common scenario:
+
+#+BEGIN_SRC bash
+emacs --daemon
+emacsclient -c
+emacs &
+#+END_SRC
+
+The final command starts a second standalone Emacs process, so chime runs twice.
+
+Choose one approach:
+
+- Use daemon + emacsclient consistently.
+- Use standalone Emacs processes only.
+
+To stop a daemon:
+
+#+BEGIN_SRC bash
+emacsclient -e "(kill-emacs)"
+#+END_SRC
+
+* Startup Validation Fails Before org-agenda-files Loads
+
+If your configuration populates =org-agenda-files= asynchronously, chime may validate before those files are ready.
+
+Options:
+
+#+BEGIN_SRC elisp
+;; Give startup more time before first check.
+(setq chime-startup-delay 20)
+#+END_SRC
+
+or ensure =org-agenda-files= is set before enabling =chime-mode=.
+
+* Async Check Failures
+
+Chime warns after repeated async failures. Tune or disable those warnings:
+
+#+BEGIN_SRC elisp
+;; Default
+(setq chime-max-consecutive-failures 5)
+
+;; Disable warnings
+(setq chime-max-consecutive-failures 0)
+#+END_SRC
+
+For custom predicate functions, ensure any variables they depend on are available in the async subprocess:
+
+#+BEGIN_SRC elisp
+(setq chime-additional-environment-regexes '("my-custom-var"))
+#+END_SRC

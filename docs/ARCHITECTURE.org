@@ -1,0 +1,259 @@
+#+TITLE: Chime Architecture
+#+AUTHOR: Craig Jennings
+
+Architecture notes for contributors and reviewers.
+
+[[file:../README.org][README]] | [[file:CONFIGURATION.org][Configuration]] | [[file:INTEGRATIONS.org][Integrations]] | [[file:TROUBLESHOOTING.org][Troubleshooting]] | [[file:../TESTING.org][Testing]]
+
+* Overview
+
+Chime is a small event pipeline around =org-agenda=. It periodically asks org for upcoming entries, converts those entries into serializable event alists, then uses that event list for notifications, modeline text, tooltip content, and jump-to-source actions.
+
+The central design constraint is responsiveness: agenda scanning can be slow for large org collections, so Chime does that work in an async Emacs subprocess and keeps the interactive Emacs session limited to scheduling, callbacks, rendering, and notification dispatch.
+
+* Runtime Flow
+
+#+BEGIN_EXAMPLE
+chime-mode
+  |
+  v
+chime--start
+  |
+  v
+timer -> chime-check
+          |
+          v
+     chime--maybe-validate
+          |
+          v
+     chime--fetch-and-process
+          |
+          v
+   async child process
+          |
+          v
+   chime--retrieve-events
+          |
+          v
+   org-agenda-list -> markers -> filters -> chime--gather-info
+          |
+          v
+   event alists returned to parent process
+          |
+          v
+   chime--handle-async-success
+          |
+          v
+   callback
+     |                       |
+     v                       v
+chime--process-events   chime--update-modeline
+     |                       |
+     v                       v
+chime--notify           chime-modeline-string
+#+END_EXAMPLE
+
+Manual refresh uses the same validation and async retrieval path, but supplies a modeline-only callback so it does not send notifications:
+
+#+BEGIN_EXAMPLE
+M-x chime-refresh-modeline
+  -> chime--maybe-validate
+  -> chime--fetch-and-process
+  -> chime--update-modeline
+#+END_EXAMPLE
+
+* Major Components
+
+** Lifecycle
+
+=chime-mode= controls the package lifecycle. Enabling the mode calls =chime--start=, which installs a timer. Disabling the mode calls =chime--stop=, which cancels the timer, interrupts any active async process, and resets validation state.
+
+Key state:
+
+- =chime--timer= — active polling timer
+- =chime--process= — currently running async process, if any
+- =chime--last-check-time= — last event check time
+- =chime--validation-done= — whether startup validation has succeeded
+- =chime--validation-retry-count= — retry counter for startup validation
+
+** Validation
+
+=chime--maybe-validate= gates event retrieval. It gives startup configuration a chance to populate =org-agenda-files= before Chime starts checking.
+
+=chime-validate-configuration= is also interactive. Interactively, it prints a checklist to =*Messages*=. Programmatically, it returns issue pairs so callers can decide whether to continue.
+
+** Async Retrieval
+
+=chime--retrieve-events= returns the child-process form used by async.el. The child process:
+
+1. Receives selected parent variables through =async-inject-variables=.
+2. Initializes package.el.
+3. Requires =chime=.
+4. Runs =org-agenda-list= for the required lookahead span.
+5. Extracts org markers from agenda line text properties.
+6. Applies include/exclude filters.
+7. Converts markers to event alists with =chime--gather-info=.
+
+The parent process receives only plain Lisp data. This is why event source identity is stored as file path and buffer position rather than as live marker objects.
+
+** Event Processing
+
+=chime--process-events= handles notification dispatch. It combines:
+
+- timed notifications from =chime--check-event=
+- day-wide notifications from =chime--day-wide-notifications=
+
+Timed notifications compare event timestamps against current time plus each configured alert interval. Day-wide notifications are handled separately because all-day timestamps have no clock component.
+
+** Modeline and Tooltip
+
+=chime--update-modeline= computes two related views:
+
+- =chime-modeline-string= — rendered text for the soonest timed event inside =chime-modeline-lookahead-minutes=
+- =chime--upcoming-events= — sorted tooltip tuples inside =chime-tooltip-lookahead-hours=
+
+All-day events are never shown in the modeline itself because the modeline is clock-relative. They can appear in the tooltip and in day-wide notifications.
+
+The tooltip uses =chime--upcoming-events=, grouping entries by day and limiting display with =chime-modeline-tooltip-max-events=.
+
+* Data Structures
+
+** Event Alist
+
+The internal event shape is an alist created by =chime--make-event= and validated by =chime--valid-event-p=:
+
+#+BEGIN_SRC elisp
+((times . (("<2026-05-10 Sun 09:30>" . (26760 32460))))
+ (title . "Planning")
+ (intervals . ((10 . medium) (0 . high)))
+ (marker-file . "/path/to/agenda.org")
+ (marker-pos . 1234))
+#+END_SRC
+
+Keys:
+
+- =times= — list of timestamp entries
+- =title= — sanitized display title
+- =intervals= — alert intervals from =chime-alert-intervals=
+- =marker-file= — source org file path, or nil for synthesized test events
+- =marker-pos= — source buffer position, or nil for synthesized test events
+
+Use the accessors instead of open-coded =assoc= in production code:
+
+- =chime--event-times=
+- =chime--event-title=
+- =chime--event-intervals=
+- =chime--event-marker-file=
+- =chime--event-marker-pos=
+
+** Time Entry
+
+Each entry in =times= is:
+
+#+BEGIN_SRC elisp
+(TIMESTAMP-STRING . PARSED-TIME)
+#+END_SRC
+
+=TIMESTAMP-STRING= is the original org timestamp string. =PARSED-TIME= is a serialized Emacs time value for timed events, or nil for all-day events.
+
+Examples:
+
+#+BEGIN_SRC elisp
+("<2026-05-10 Sun 09:30>" . (26760 32460))
+("<2026-05-10 Sun>" . nil)
+#+END_SRC
+
+** Upcoming Event Tuple
+
+Tooltip state uses tuples derived from event alists:
+
+#+BEGIN_SRC elisp
+(EVENT TIME-INFO MINUTES-UNTIL)
+#+END_SRC
+
+Example:
+
+#+BEGIN_SRC elisp
+(((times . ...)
+  (title . "Planning")
+  (intervals . ...)
+  (marker-file . "/path/to/agenda.org")
+  (marker-pos . 1234))
+ ("<2026-05-10 Sun 09:30>" . (26760 32460))
+ 15.0)
+#+END_SRC
+
+These tuples are stored in =chime--upcoming-events= and are also passed through tooltip grouping and deduplication helpers.
+
+* Filtering
+
+Filtering happens in the async child before event alists are created:
+
+#+BEGIN_EXAMPLE
+markers
+  -> chime--apply-include-filters
+  -> chime--apply-exclude-filters
+  -> chime--gather-info
+#+END_EXAMPLE
+
+Filters operate on org markers, not event alists, so predicates can inspect org properties, tags, TODO state, and source files directly.
+
+=chime-include-filters= and =chime-exclude-filters= share the same shape:
+
+#+BEGIN_SRC elisp
+((keywords . ("TODO" "NEXT"))
+ (tags . ("work"))
+ (predicates . (my-marker-predicate)))
+#+END_SRC
+
+If include filters are configured, a marker must match at least one include predicate. Exclude filters then remove any matching marker.
+
+* org-gcal Handling
+
+Regular org entries use SCHEDULED and DEADLINE timestamps first, then plain timestamps in the entry body.
+
+org-gcal entries are different: Chime detects them by the =entry-id= property and extracts timestamps only from the =:org-gcal:= drawer. That drawer is the authoritative source after calendar syncs; planning lines or body timestamps can lag behind after remote edits.
+
+* Error Handling
+
+Async failures are tracked with =chime--consecutive-async-failures=. Repeated failures can trigger a warning controlled by =chime-max-consecutive-failures=.
+
+=chime--fetch-and-process= records failures from two places:
+
+- errors returned by the async process
+- errors raised while the parent callback handles returned data
+
+Successful async processing resets the consecutive failure counter.
+
+* Navigation
+
+Modeline right-click uses the first item in =chime--upcoming-events=. Chime reconstructs source location from =marker-file= and =marker-pos=:
+
+#+BEGIN_EXAMPLE
+chime--jump-to-first-event
+  -> chime--jump-to-event
+  -> find-file
+  -> goto-char
+  -> org-fold-show-entry / org-show-entry
+#+END_EXAMPLE
+
+This works across the async boundary because the child returns file path and numeric position, not marker objects.
+
+* Testing Notes
+
+Tests build event alists through shared helpers in =tests/testutil-events.el= so fixtures stay aligned with the production event contract.
+
+Useful focused test files:
+
+- =tests/test-chime-event-contract.el=
+- =tests/test-chime-gather-info.el=
+- =tests/test-chime-check-event.el=
+- =tests/test-chime-update-modeline.el=
+- =tests/test-chime-update-modeline-helpers.el=
+- =tests/test-chime-process-notifications.el=
+
+Run the full suite with:
+
+#+BEGIN_SRC sh
+make test
+#+END_SRC

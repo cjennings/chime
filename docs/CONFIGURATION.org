@@ -1,0 +1,420 @@
+#+TITLE: Chime Configuration
+#+AUTHOR: Craig Jennings
+
+Reference for Chime's user-facing configuration.
+
+[[file:../README.org][README]] | [[file:ARCHITECTURE.org][Architecture]] | [[file:INTEGRATIONS.org][Integrations]] | [[file:TROUBLESHOOTING.org][Troubleshooting]] | [[file:../TESTING.org][Testing]]
+
+* Polling Interval
+
+Control how often chime checks for upcoming events:
+
+#+BEGIN_SRC elisp
+;; Default: check every 60 seconds
+(setq chime-check-interval 60)
+
+;; More responsive
+(setq chime-check-interval 30)
+#+END_SRC
+
+Lower values make notifications more responsive but increase system load. Higher values reduce polling overhead but may delay notifications slightly.
+
+Changes take effect after restarting =chime-mode=.
+
+* Alert Intervals
+
+Set when to receive notifications and their urgency levels using =(minutes . severity)= pairs:
+
+#+BEGIN_SRC elisp
+;; Default: 10 minutes before and at event time
+(setq chime-alert-intervals '((10 . medium) (0 . high)))
+
+;; Single notification at event time
+(setq chime-alert-intervals '((0 . high)))
+
+;; Multiple notifications with escalating urgency
+(setq chime-alert-intervals
+      '((10 . low)
+        (5  . medium)
+        (0  . high)))
+#+END_SRC
+
+Severity levels are =high=, =medium=, and =low=. They are passed to [[https://github.com/jwiegley/alert][alert.el]], which maps them to your notification style or daemon.
+
+* Chime Sound
+
+#+BEGIN_SRC elisp
+;; Disable sound entirely
+(setq chime-sound-file nil)
+
+;; Use a custom WAV or AU file
+(setq chime-sound-file "/path/to/chime.wav")
+#+END_SRC
+
+Chime uses Emacs's built-in =play-sound-file=. WAV and AU are the safest formats.
+
+* Notification Icon
+
+#+BEGIN_SRC elisp
+;; Use a custom icon
+(setq chime-notification-icon "/path/to/icon.png")
+
+;; Use the system/default alert icon
+(setq chime-notification-icon nil)
+#+END_SRC
+
+The icon is passed through to alert.el. PNG is the safest cross-platform choice.
+
+* Startup Delay
+
+Chime waits before the first check after enabling =chime-mode= so =org-agenda-files= and related config can finish loading.
+
+#+BEGIN_SRC elisp
+;; Default
+(setq chime-startup-delay 10)
+
+;; Increase if startup checks run before org-agenda-files is populated
+(setq chime-startup-delay 20)
+#+END_SRC
+
+* Modeline Display
+
+#+BEGIN_SRC elisp
+;; Enable modeline display
+(setq chime-enable-modeline t)
+
+;; Show events up to 2 hours ahead
+(setq chime-modeline-lookahead-minutes 120)
+
+;; Customize the modeline prefix
+(setq chime-modeline-format " ⏰ %s")
+#+END_SRC
+
+The modeline displays the soonest timed event within the lookahead window and updates automatically on each check.
+
+** Minor Mode Lighter
+
+By default, the minor mode lighter is empty because the event display already indicates chime is running.
+
+#+BEGIN_SRC elisp
+(setq chime-modeline-lighter " Chime")
+#+END_SRC
+
+** No-Events Text
+
+Control what appears when no events are within the modeline lookahead window:
+
+#+BEGIN_SRC elisp
+;; Default icon
+(setq chime-modeline-no-events-text " ⏰")
+
+;; Show nothing
+(setq chime-modeline-no-events-text nil)
+
+;; Custom text
+(setq chime-modeline-no-events-text " No events")
+#+END_SRC
+
+** Tooltip
+
+Hover over the modeline text to see upcoming events grouped by day. Configure the tooltip event limit:
+
+#+BEGIN_SRC elisp
+;; Show up to 10 events
+(setq chime-modeline-tooltip-max-events 10)
+
+;; Show all events in the lookahead window
+(setq chime-modeline-tooltip-max-events nil)
+#+END_SRC
+
+Customize the tooltip header:
+
+#+BEGIN_SRC elisp
+(setq chime-tooltip-header-format
+      "Upcoming Events as of %a %b %d %Y @ %I:%M %p")
+#+END_SRC
+
+Tooltip display strings are customizable for localization and plain-text
+accessibility:
+
+#+BEGIN_SRC elisp
+;; Section labels
+(setq chime-tooltip-today-label "Today")
+(setq chime-tooltip-tomorrow-label "Tomorrow")
+(setq chime-tooltip-relative-day-format "%s, %b %d")
+(setq chime-tooltip-future-day-format "%A, %b %d")
+
+;; Event lines and overflow
+(setq chime-tooltip-event-format "%t at %T %u")
+(setq chime-tooltip-more-events-format "... and %d more event%s")
+(setq chime-tooltip-section-separator "─────────────")
+(setq chime-tooltip-no-events-separator "─────────────────────")
+
+;; Tooltip-specific day/hour countdown words
+(setq chime-tooltip-countdown-prefix "in")
+(setq chime-tooltip-day-unit-labels '("day" . "days"))
+(setq chime-tooltip-hour-unit-labels '("hour" . "hours"))
+
+;; No-events tooltip guidance
+(setq chime-tooltip-no-events-format
+      "No calendar events in\nthe next %s.")
+(setq chime-tooltip-increase-lookahead-format
+      "Increase `%s`\nto expand scope.")
+(setq chime-tooltip-left-click-label "Left-click: Open calendar")
+#+END_SRC
+
+** Tooltip Lookahead
+
+The tooltip can show events beyond the modeline lookahead window:
+
+#+BEGIN_SRC elisp
+;; Modeline shows events within 2 hours
+(setq chime-modeline-lookahead-minutes 120)
+
+;; Tooltip shows events within 1 week
+(setq chime-tooltip-lookahead-hours 168)
+#+END_SRC
+
+Larger values increase the agenda span fetched by the async subprocess and can slow checks for large org collections.
+
+** Click Actions
+
+- Left-click opens =chime-calendar-url= in a browser.
+- Right-click jumps to the next event's org entry.
+
+#+BEGIN_SRC elisp
+(setq chime-calendar-url "https://calendar.google.com")
+#+END_SRC
+
+* Notification Text
+
+Control what appears in notifications and the modeline event text:
+
+#+BEGIN_SRC elisp
+;; Default: title, event time, countdown
+(setq chime-notification-text-format "%t at %T (%u)")
+
+;; Title and countdown only
+(setq chime-notification-text-format "%t (%u)")
+#+END_SRC
+
+Placeholders:
+
+- =%t= — event title
+- =%T= — event time formatted by =chime-display-time-format-string=
+- =%u= — time until event formatted by =chime-time-left-formats=
+
+* Time Formats
+
+#+BEGIN_SRC elisp
+;; 12-hour with AM/PM
+(setq chime-display-time-format-string "%I:%M %p")
+
+;; 24-hour
+(setq chime-display-time-format-string "%H:%M")
+#+END_SRC
+
+Countdown formatting uses =chime-time-left-formats=:
+
+#+BEGIN_SRC elisp
+(setq chime-time-left-formats
+      '((at-event . "right now")
+        (short    . "in %M")
+        (long     . "in %H %M")))
+#+END_SRC
+
+* Title Truncation
+
+#+BEGIN_SRC elisp
+;; No truncation
+(setq chime-max-title-length nil)
+
+;; Limit title text
+(setq chime-max-title-length 25)
+#+END_SRC
+
+This affects only the event title placeholder =%t=, not the icon, time, or countdown.
+
+* Filtering
+
+Two alists control which events trigger notifications:
+
+- =chime-include-filters= — event must match at least one configured include rule
+- =chime-exclude-filters= — event is dropped if it matches any configured exclude rule
+
+Both use this shape:
+
+#+BEGIN_SRC elisp
+'((keywords   . ("TODO" "NEXT"))
+  (tags       . ("work" "urgent"))
+  (predicates . (my-predicate-fn)))
+#+END_SRC
+
+Example:
+
+#+BEGIN_SRC elisp
+(setq chime-include-filters
+      '((keywords . ("TODO" "NEXT"))
+        (tags     . ("important"))))
+
+(setq chime-exclude-filters
+      '((keywords . ("DONE" "CANCELLED"))
+        (tags     . ("someday"))
+        (predicates . (chime-done-keywords-predicate
+                       chime-declined-events-predicate))))
+#+END_SRC
+
+If the same keyword or tag appears in both include and exclude filters, exclude wins.
+
+** Custom Predicates
+
+Predicates receive an org marker and return non-nil to match.
+
+#+BEGIN_SRC elisp
+(defun my-no-notify-predicate (marker)
+  "Match events with a NO_NOTIFY property set."
+  (org-entry-get marker "NO_NOTIFY"))
+
+(setq chime-exclude-filters
+      '((predicates . (chime-done-keywords-predicate
+                       chime-declined-events-predicate
+                       my-no-notify-predicate))))
+#+END_SRC
+
+* All-Day Events
+
+Chime distinguishes timed events from all-day events.
+
+Timed:
+
+#+BEGIN_SRC org
+* Meeting
+<2026-05-10 Sun 14:30>
+#+END_SRC
+
+All-day:
+
+#+BEGIN_SRC org
+* Birthday
+<2026-05-10 Sun>
+#+END_SRC
+
+All-day events are never shown in the modeline itself. They can appear in tooltip and day-wide notifications.
+
+** Day-Wide Notification Times
+
+#+BEGIN_SRC elisp
+;; Default: notify at 8:00 AM
+(setq chime-day-wide-alert-times '("08:00"))
+
+;; Multiple times
+(setq chime-day-wide-alert-times '("08:00" "17:00"))
+
+;; 12-hour Org time strings are accepted
+(setq chime-day-wide-alert-times '("8:00am" "5:00pm"))
+
+;; Disable all-day notifications
+(setq chime-day-wide-alert-times nil)
+#+END_SRC
+
+** Overdue and Past All-Day Events
+
+#+BEGIN_SRC elisp
+;; Show overdue items with all-day notifications
+(setq chime-show-any-overdue-with-day-wide-alerts t)
+
+;; Show only today's all-day events
+(setq chime-show-any-overdue-with-day-wide-alerts nil)
+#+END_SRC
+
+Today's events always show if you launch Emacs after the alert time. This setting controls whether previous-day all-day events are included.
+
+** Advance Notice
+
+#+BEGIN_SRC elisp
+;; Only notify on the day of the event
+(setq chime-day-wide-advance-notice nil)
+
+;; Also notify one day before
+(setq chime-day-wide-advance-notice 1)
+#+END_SRC
+
+** Tooltip Display
+
+#+BEGIN_SRC elisp
+;; Show all-day events in tooltip
+(setq chime-tooltip-show-all-day-events t)
+
+;; Hide all-day events from tooltip
+(setq chime-tooltip-show-all-day-events nil)
+#+END_SRC
+
+* Advanced Settings
+
+** Failure Warnings
+
+#+BEGIN_SRC elisp
+;; Warn after 5 consecutive async failures
+(setq chime-max-consecutive-failures 5)
+
+;; Disable failure warnings
+(setq chime-max-consecutive-failures 0)
+#+END_SRC
+
+** Extra Alert Arguments
+
+#+BEGIN_SRC elisp
+(setq chime-extra-alert-plist '(:style libnotify))
+#+END_SRC
+
+** Async Environment Variables
+
+If custom predicates need additional variables in the async subprocess, add regexes for their names:
+
+#+BEGIN_SRC elisp
+(setq chime-additional-environment-regexes '("my-custom-var"))
+#+END_SRC
+
+* Full Example
+
+#+BEGIN_SRC elisp
+(use-package chime
+  :vc (:url "https://github.com/cjennings/chime" :rev :newest)
+  :after alert
+  :commands (chime-mode chime-check chime-refresh-modeline)
+  :config
+  (setq chime-check-interval 60)
+  (setq chime-alert-intervals '((5 . medium) (0 . high)))
+  (setq chime-enable-modeline t)
+  (setq chime-modeline-lookahead-minutes 180)
+  (setq chime-tooltip-lookahead-hours 168)
+  (setq chime-modeline-format " ⏰ %s")
+  (setq chime-notification-text-format "%t (%u)")
+  (setq chime-display-time-format-string "%H:%M")
+  (setq chime-time-left-formats
+        '((at-event . "NOW!")
+          (short    . "in %mm")
+          (long     . "%hh%mm")))
+  (setq chime-exclude-filters
+        '((predicates . (chime-done-keywords-predicate
+                         chime-declined-events-predicate))))
+  (chime-mode 1))
+#+END_SRC
+
+* Supported Org Timestamp Shapes
+
+#+BEGIN_SRC org
+* Scheduled event
+SCHEDULED: <2026-05-10 Sun 10:00>
+
+* Deadline
+DEADLINE: <2026-05-10 Sun 17:00>
+
+* Plain timestamp
+<2026-05-10 Sun 14:30>
+
+* Repeating timestamp
+SCHEDULED: <2026-05-10 Sun 09:00 +1w>
+#+END_SRC
+
+Diary sexp timestamps such as =<%%(...)>= are not supported. Use standard org timestamps or repeating timestamps instead.
