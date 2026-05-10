@@ -55,7 +55,12 @@ check-deps:
 		printf "$(YELLOW)Warning: .eask not found — run 'make setup' from project root$(NC)\n"; \
 		exit 1; \
 	fi
-	@printf "$(GREEN)✓ eask available, deps installed$(NC)\n"
+	@$(EMACS_BATCH) -l check-deps.el >$(PROJECT_ROOT)/tests/check-deps-output.log 2>&1 || { \
+		printf "$(RED)Error: required Emacs Lisp test dependencies are missing$(NC)\n"; \
+		cat $(PROJECT_ROOT)/tests/check-deps-output.log; \
+		exit 1; \
+	}
+	@printf "$(GREEN)✓ eask available, required Emacs Lisp deps loadable$(NC)\n"
 
 # Run all tests (excluding :slow)
 test: check-deps
@@ -260,7 +265,7 @@ lint: check-deps
 clean:
 	@printf "$(YELLOW)Cleaning byte-compiled files...$(NC)\n"
 	@rm -f *.elc ../*.elc
-	@rm -f test-output.log test-file-output.log test-unit-output.log test-integration-output.log
+	@rm -f check-deps-output.log test-output.log test-file-output.log test-unit-output.log test-integration-output.log
 	@printf "$(GREEN)✓ Cleaned$(NC)\n"
 
 # Show help
@@ -280,7 +285,7 @@ help:
 	@echo "  make count                     - Count tests per file"
 	@echo "  make list                      - List all test names"
 	@echo "  make clean                     - Remove byte-compiled files and logs"
-	@echo "  make check-deps                - Verify eask + installed deps"
+	@echo "  make check-deps                - Verify eask + loadable Emacs Lisp deps"
 	@echo "  make help                      - Show this help message"
 	@echo ""
 	@echo "Project-root targets (run from project root):"

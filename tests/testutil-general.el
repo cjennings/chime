@@ -6,22 +6,37 @@
 ;; This library provides general helper functions and constants for managing
 ;; test directories and files across test suites.
 ;;
-;; It establishes a user-local hidden directory as the root for all test assets,
-;; provides utilities to create this directory safely, create temporary files
-;; and subdirectories within it, and clean up after tests.
+;; It establishes a per-process temporary directory as the root for all test
+;; assets, provides utilities to create this directory safely, create temporary
+;; files and subdirectories within it, and clean up after tests.
 ;;
 ;; This library should be required by test suites to ensure consistent,
 ;; reliable, and isolated file-system resources.
 ;;
 ;;; Code:
 
+(defun chime-test--default-base-dir ()
+  "Return the default base directory for CHIME test files.
+When CHIME_TEST_TMPDIR is set and non-empty, use it as an explicit
+override.  Otherwise use a unique process-local directory under
+`temporary-file-directory' so test runs do not write into the user's home
+or collide with other runs."
+  (let ((override (getenv "CHIME_TEST_TMPDIR")))
+    (file-name-as-directory
+     (expand-file-name
+      (if (and override (> (length override) 0))
+          override
+        (make-temp-name
+         (expand-file-name
+          (format "chime-tests-%s-" (emacs-pid))
+          temporary-file-directory)))))))
+
 (defconst chime-test-base-dir
-  (expand-file-name "~/.temp-chime-tests/")
+  (chime-test--default-base-dir)
   "Base directory for all CHIME test files and directories.
-All test file-system artifacts should be created under this hidden
-directory in the user's home. This avoids relying on ephemeral system
-directories like /tmp and reduces flaky test failures caused by external
-cleanup.")
+All test file-system artifacts should be created under this directory.
+Set CHIME_TEST_TMPDIR to force a specific root; otherwise a unique
+process-local directory under `temporary-file-directory' is used.")
 
 (defun chime-create-test-base-dir ()
   "Create the test base directory `chime-test-base-dir' if it does not exist.

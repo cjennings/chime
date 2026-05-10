@@ -40,7 +40,7 @@ All test logic lives in =tests/Makefile=. The root Makefile delegates to it, so 
 | =make clean= | Remove byte-compiled files and logs |
 | =make help= | Show all available commands |
 
-Each test file runs in its own Emacs process for isolation. Integration tests are identified by the =test-integration-= prefix. Dependencies are auto-detected from =~/.emacs.d/elpa/=. Override with =EMACS= or =ELPA_DIR= environment variables.
+Each test file runs in its own Emacs process for isolation. Integration tests are identified by the =test-integration-= prefix. Dependency checks run inside Emacs with =package-initialize= and =require=, so any setup that makes the required features available on =load-path= works.
 
 ** Examples
 
@@ -236,11 +236,19 @@ Builds org events and event data structures for tests.
      ("Birthday" bday-time nil t))
     org-file
   (setq org-agenda-files (list org-file)))
+
+;; Build tooltip text from org content without manual buffer setup
+(with-chime-tooltip-from-content content tooltip
+  (should (string-match-p "Meeting" tooltip)))
 #+end_src
 
 ** testutil-general.el --- File system utilities
 
-Manages test directories and temp files under =~/.temp-chime-tests/=.
+Manages test directories and temp files under =chime-test-base-dir=. By default
+this is a unique per-process directory under =temporary-file-directory=, so test
+runs do not write into the user's home and parallel runs do not share one fixed
+root. Set =CHIME_TEST_TMPDIR= to force a specific test root when debugging or
+when CI needs a predictable artifact location.
 
 | Function | Purpose |
 |----------+---------|
@@ -252,6 +260,8 @@ Manages test directories and temp files under =~/.temp-chime-tests/=.
 | =chime-create-directory-or-file-ensuring-parents= | Create dir (trailing /) or file |
 
 All paths are sandboxed under =chime-test-base-dir= -- attempts to escape are rejected with an error.
+Tests should create files through these helpers and clean up with
+=chime-delete-test-base-dir= or the higher-level setup macros.
 
 * Key patterns
 
@@ -281,9 +291,17 @@ All paths are sandboxed under =chime-test-base-dir= -- attempts to escape are re
   (chime--process-notifications events))
 #+end_src
 
+** State isolation
+
+Prefer lexical =let=, =with-chime-config=, =with-test-setup=, and event helpers
+over file-local setup/teardown functions that save globals into defvars. Dynamic
+bindings restore state automatically on both pass and failure, and helpers like
+=with-gathered-events= and =with-chime-tooltip-from-content= avoid repeating temp
+file and buffer cleanup logic.
+
 * Important notes
 
-1. *Load path*: The Makefile automatically finds dependencies in =~/.emacs.d/elpa/=
+1. *Load path*: =make check-deps= verifies dependencies by requiring them inside Emacs, rather than assuming a package install directory.
 2. *Fuzzy matching*: =test-file= and =test-one= support partial names
 3. *Test logs*: Output saved to =test-output.log=, =test-file-output.log=, etc. in =tests/=
 4. *Mock warnings*: "Redefining 'file-exists-p' might break native compilation" is normal and expected
@@ -292,13 +310,15 @@ All paths are sandboxed under =chime-test-base-dir= -- attempts to escape are re
 
 * Dependencies
 
-Required packages (auto-detected by Makefile):
+Required packages (verified by =make check-deps=):
 - =dash= (list manipulation)
 - =alert= (notifications)
 - =async= (async processes)
 - =org-agenda= (built-in, events source)
 
-Use =make check-deps= (from =tests/=) to verify all dependencies are installed.
+Use =make check-deps= (from the project root or =tests/=) to verify all
+dependencies are loadable. If any are missing, run =make setup= from the project
+root or otherwise make the missing features available on Emacs' =load-path=.
 
 * Test inventory
 
