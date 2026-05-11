@@ -193,7 +193,9 @@ See [[file:TESTING.org][TESTING.org]] for the full test guide.
 :CUSTOM_ID: history
 :END:
 
-CHIME started life as [[https://github.com/akhramov/org-wild-notifier.el][org-wild-notifier]], written by Artem Khramov. I relied on it daily for years, so when Artem deprecated it on Aug 2, 2025 in favor of [[https://github.com/spegoraro/org-alert][org-alert]], I adopted it rather than let it rot. One bug fix led to another, features crept in, and eventually it had changed enough to deserve its own name.
+CHIME started life as [[https://github.com/akhramov/org-wild-notifier.el][org-wild-notifier]], written by Artem Khramov. I relied on it daily for years, so when Artem archived the repo and stopped responding to issues in August 2025, I adopted it rather than let it rot. One bug fix led to another, features crept in, and eventually it had changed enough to deserve its own name.
+
+Org-wild-notifier itself has since been picked back up under the [[https://github.com/emacsorphanage/org-wild-notifier][Emacs Orphanage]]. Chime continues on its own line because it has materially diverged — see the [[#features][Features]] list for what it adds.
 
 All credit for the original idea and architecture goes to Artem. I'm just the person who couldn't let it go.
 

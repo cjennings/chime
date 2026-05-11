@@ -322,21 +322,6 @@ root or otherwise make the missing features available on Emacs' =load-path=.
 
 * Test inventory
 
-645 tests across 53 files (as of 2026-04-04).
-
-Top files by count:
-| File | Tests |
-|------+-------|
-| test-convert-org-contacts-birthdays.el | 35 |
-| test-chime-sanitize-title.el | 30 |
-| test-chime-notification-text.el | 30 |
-| test-chime-timestamp-parse.el | 26 |
-| test-chime-12hour-format.el | 26 |
-| test-chime-time-left.el | 24 |
-| test-chime-modeline.el | 20 |
-| test-chime-time-utilities.el | 19 |
-| test-chime-all-day-events.el | 19 |
-| test-chime-update-modeline.el | 18 |
-| test-chime-has-timestamp.el | 18 |
-
-Run =make count= from =tests/= for the full breakdown.
+Run =make count= from the project root or =tests/= for an up-to-date
+breakdown of tests per file and a total count. The live target is the
+source of truth.
