@@ -786,6 +786,10 @@ Set to t to enable debug functions:
   "Count of consecutive async check failures.
 After `chime-max-consecutive-failures' failures, a warning is displayed.")
 
+(defvar chime--deprecated-property-warned nil
+  "Non-nil once the deprecated per-event-property warning has fired this session.
+The warning is shown at most once, so this stays set until Emacs restarts.")
+
 
 (defvar chime--last-check-time (seconds-to-time 0)
   "Last time checked for events.")
@@ -834,6 +838,10 @@ default for a specific environment, `setq' the variable in your init.")
 ;;    (intervals . ((10 . medium) (0 . high)))
 ;;    (marker-file . "/path/to/agenda.org")
 ;;    (marker-pos . 1234))
+;;
+;; When a heading sets its intervals through a deprecated per-event property,
+;; the event also carries a `deprecated-property' key naming it, so the parent
+;; process can warn the user once.
 
 (defconst chime--event-required-keys '(times title intervals)
   "Required keys for internal Chime event alists.")
@@ -859,6 +867,10 @@ all-day timestamps."
 (defun chime--event-marker-pos (event)
   "Return EVENT's source buffer position, or nil for synthesized events."
   (cdr (assoc 'marker-pos event)))
+
+(defun chime--event-deprecated-property (event)
+  "Return the deprecated property name that set EVENT's intervals, or nil."
+  (cdr (assoc 'deprecated-property event)))
 
 (defun chime--event-time-entry-p (entry)
   "Return non-nil when ENTRY matches Chime's timestamp entry contract."
@@ -902,15 +914,19 @@ can cross the async process boundary."
          (and (or (null marker-file) (stringp marker-file))
               (or (null marker-pos) (integerp marker-pos))))))
 
-(defun chime--make-event (times title intervals &optional marker-file marker-pos)
+(defun chime--make-event (times title intervals &optional marker-file marker-pos deprecated-property)
   "Create an internal Chime event alist.
 TIMES, TITLE, INTERVALS, MARKER-FILE, and MARKER-POS follow the contract
-documented by `chime--valid-event-p'."
+documented by `chime--valid-event-p'.  DEPRECATED-PROPERTY, when non-nil,
+is the name of a deprecated per-event property that supplied INTERVALS; it
+is carried on the event so the parent process can warn the user once."
   (let ((event `((times . ,times)
                  (title . ,title)
                  (intervals . ,intervals)
                  (marker-file . ,marker-file)
-                 (marker-pos . ,marker-pos))))
+                 (marker-pos . ,marker-pos)
+                 ,@(when deprecated-property
+                     (list (cons 'deprecated-property deprecated-property))))))
     (unless (chime--valid-event-p event)
       (error "Invalid Chime event: %S" event))
     event))
@@ -1974,18 +1990,63 @@ Title is sanitized to prevent Lisp read syntax errors."
             (org-heading-components)))
       (chime--sanitize-title title))))
 
+(defun chime--parse-notify-before-value (value)
+  "Parse a per-event notify-before property VALUE string.
+Return a non-negative integer number of minutes, or nil when VALUE is not
+a string representing one.  Negative, fractional, suffixed, empty, and nil
+values all return nil."
+  (when (stringp value)
+    (let ((trimmed (string-trim value)))
+      (and (string-match-p "\\`[0-9]+\\'" trimmed)
+           (string-to-number trimmed)))))
+
+(defun chime--read-interval-override (marker property deprecated-name)
+  "Return (INTERVALS . DEPRECATED-NAME) when MARKER's PROPERTY is a valid override.
+INTERVALS is ((MINUTES . medium)) for a non-negative integer property value.
+Return nil when the property is absent.  When the property is present but
+malformed, log a message naming the heading and return nil so the caller
+can fall through to the next source."
+  (let ((raw (org-entry-get marker property)))
+    (when raw
+      (let ((minutes (chime--parse-notify-before-value raw)))
+        (if minutes
+            (cons (list (cons minutes 'medium)) deprecated-name)
+          (message "chime: ignoring invalid :%s: value %S in heading %S"
+                   property raw (chime--extract-title marker))
+          nil)))))
+
+(defun chime--intervals-for-marker (marker)
+  "Return MARKER's alert intervals as a cons (INTERVALS . DEPRECATED-PROP).
+When the heading sets `:CHIME_NOTIFY_BEFORE:' (or the deprecated
+`:WILD_NOTIFIER_NOTIFY_BEFORE:' alias) to a non-negative integer N,
+INTERVALS is ((N . medium)) and the global `chime-alert-intervals' is
+ignored for this event.  `:CHIME_NOTIFY_BEFORE:' wins when both are set.
+DEPRECATED-PROP is the property name string when the deprecated alias
+supplied the value, nil otherwise.  Malformed property values are logged
+and fall back to the global setting."
+  (or (chime--read-interval-override marker "CHIME_NOTIFY_BEFORE" nil)
+      (chime--read-interval-override marker "WILD_NOTIFIER_NOTIFY_BEFORE"
+                                     "WILD_NOTIFIER_NOTIFY_BEFORE")
+      (cons chime-alert-intervals nil)))
+
 (defun chime--gather-info (marker)
   "Collect information about an event.
 MARKER acts like event's identifier.
 Returns file path and position instead of marker object for proper
 async serialization (markers can't be serialized across processes,
-especially when buffer names contain angle brackets)."
-  (chime--make-event
-   (chime--extract-time marker)
-   (chime--extract-title marker)
-   chime-alert-intervals
-   (buffer-file-name (marker-buffer marker))
-   (marker-position marker)))
+especially when buffer names contain angle brackets).
+Alert intervals come from `chime--intervals-for-marker', which honors a
+per-event `:CHIME_NOTIFY_BEFORE:' property override."
+  (let* ((interval-spec (chime--intervals-for-marker marker))
+         (intervals (car interval-spec))
+         (deprecated (cdr interval-spec)))
+    (chime--make-event
+     (chime--extract-time marker)
+     (chime--extract-title marker)
+     intervals
+     (buffer-file-name (marker-buffer marker))
+     (marker-position marker)
+     deprecated)))
 
 ;;;; Configuration Validation
 
@@ -2164,6 +2225,20 @@ reaches `chime-max-consecutive-failures'.  Only warns once at the threshold."
              chime--consecutive-async-failures)
      :warning)))
 
+(defun chime--maybe-warn-deprecated-properties (events)
+  "Warn once per session if any of EVENTS used a deprecated per-event property.
+Does nothing once the session guard `chime--deprecated-property-warned' is set."
+  (unless chime--deprecated-property-warned
+    (let ((event (cl-find-if #'chime--event-deprecated-property events)))
+      (when event
+        (setq chime--deprecated-property-warned t)
+        (display-warning
+         'chime
+         (format "Heading %S uses the deprecated property :%s:.\nUse :CHIME_NOTIFY_BEFORE: instead."
+                 (chime--event-title event)
+                 (chime--event-deprecated-property event))
+         :warning)))))
+
 (defun chime--record-async-failure (err prefix)
   "Record an async failure ERR.  PREFIX names the failure category in the log.
 Increments the consecutive-failure counter, sends a debug log when the
@@ -2178,11 +2253,13 @@ persistent-failure warning, and switches the modeline to its error state."
 
 (defun chime--handle-async-success (callback events)
   "Process a successful async fetch.  Invoke CALLBACK with EVENTS.
-Resets the consecutive-failure counter and sends a debug-completion log
-when the debug module is loaded."
+Resets the consecutive-failure counter, sends a debug-completion log when
+the debug module is loaded, and warns once per session if any event used a
+deprecated per-event property."
   (setq chime--consecutive-async-failures 0)
   (when (featurep 'chime-debug)
     (chime--debug-log-async-complete events))
+  (chime--maybe-warn-deprecated-properties events)
   (funcall callback events))
 
 (defun chime--fetch-and-process (callback)

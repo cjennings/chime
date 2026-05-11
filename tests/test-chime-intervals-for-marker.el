@@ -32,20 +32,22 @@
 ;;; Code:
 
 (require 'test-bootstrap (expand-file-name "test-bootstrap.el"))
+(require 'testutil-time (expand-file-name "testutil-time.el"))
 (require 'cl-lib)
 
 ;;; Helpers
 
 (defun test-chime-intervals--org-heading-with-props (props)
   "Return org content for one heading whose drawer carries PROPS.
-PROPS is a list of (NAME . VALUE) string pairs, or nil for no drawer."
+PROPS is a list of (NAME . VALUE) string pairs, or nil for no drawer.
+A dynamic timestamp is appended so `chime--gather-info' has one to extract."
   (concat "* Test Heading\n"
           (when props
             (concat ":PROPERTIES:\n"
                     (mapconcat (lambda (p) (format ":%s: %s\n" (car p) (cdr p)))
                                props "")
                     ":END:\n"))
-          "<2026-05-12 Tue 14:00>\n"))
+          (test-timestamp-string (test-time-tomorrow-at 14 0)) "\n"))
 
 (defmacro test-chime-intervals--with-marker (props &rest body)
   "Run BODY in a temp org buffer with a heading carrying PROPS; bind `marker'."
@@ -56,16 +58,6 @@ PROPS is a list of (NAME . VALUE) string pairs, or nil for no drawer."
      (goto-char (point-min))
      (let ((marker (point-marker)))
        ,@body)))
-
-(defmacro test-chime-intervals--capture-messages (var &rest body)
-  "Run BODY with `message' calls captured into VAR (chronological)."
-  (declare (indent 1) (debug t))
-  `(let ((,var nil))
-     (cl-letf (((symbol-function 'message)
-                (lambda (fmt &rest args)
-                  (push (apply #'format fmt args) ,var))))
-       ,@body)
-     (setq ,var (nreverse ,var))))
 
 ;;; chime--parse-notify-before-value
 
@@ -116,18 +108,22 @@ PROPS is a list of (NAME . VALUE) string pairs, or nil for no drawer."
 
 (ert-deftest test-chime-intervals-for-marker-error-malformed-canonical-falls-back ()
   "Error: a malformed :CHIME_NOTIFY_BEFORE: value logs and falls back to the global."
-  (let ((chime-alert-intervals '((10 . medium))))
+  (let ((chime-alert-intervals '((10 . medium)))
+        (messages nil))
     (test-chime-intervals--with-marker '(("CHIME_NOTIFY_BEFORE" . "soon"))
-      (test-chime-intervals--capture-messages messages
+      (cl-letf (((symbol-function 'message)
+                 (lambda (fmt &rest args) (push (apply #'format fmt args) messages))))
         (should (equal (cons '((10 . medium)) nil)
                        (chime--intervals-for-marker marker))))
       (should (cl-some (lambda (m) (string-match-p "CHIME_NOTIFY_BEFORE" m)) messages)))))
 
 (ert-deftest test-chime-intervals-for-marker-error-malformed-alias-falls-back ()
   "Error: a malformed deprecated-alias value logs and falls back to the global."
-  (let ((chime-alert-intervals '((10 . medium))))
+  (let ((chime-alert-intervals '((10 . medium)))
+        (messages nil))
     (test-chime-intervals--with-marker '(("WILD_NOTIFIER_NOTIFY_BEFORE" . "-3"))
-      (test-chime-intervals--capture-messages messages
+      (cl-letf (((symbol-function 'message)
+                 (lambda (fmt &rest args) (push (apply #'format fmt args) messages))))
         (should (equal (cons '((10 . medium)) nil)
                        (chime--intervals-for-marker marker))))
       (should (cl-some (lambda (m) (string-match-p "WILD_NOTIFIER_NOTIFY_BEFORE" m)) messages)))))
@@ -136,21 +132,15 @@ PROPS is a list of (NAME . VALUE) string pairs, or nil for no drawer."
 
 (ert-deftest test-chime-gather-info-integration-applies-canonical-override ()
   "Integration: a heading with :CHIME_NOTIFY_BEFORE: 25 gathers an event with ((25 . medium))."
-  (with-temp-buffer
-    (org-mode)
-    (insert "* Meeting\n:PROPERTIES:\n:CHIME_NOTIFY_BEFORE: 25\n:END:\n<2026-05-12 Tue 14:00>\n")
-    (goto-char (point-min))
-    (let ((event (chime--gather-info (point-marker))))
+  (test-chime-intervals--with-marker '(("CHIME_NOTIFY_BEFORE" . "25"))
+    (let ((event (chime--gather-info marker)))
       (should (equal '((25 . medium)) (chime--event-intervals event)))
       (should-not (chime--event-deprecated-property event)))))
 
 (ert-deftest test-chime-gather-info-integration-flags-deprecated-alias ()
   "Integration: a heading with the deprecated alias gathers an event carrying the deprecation flag."
-  (with-temp-buffer
-    (org-mode)
-    (insert "* Meeting\n:PROPERTIES:\n:WILD_NOTIFIER_NOTIFY_BEFORE: 20\n:END:\n<2026-05-12 Tue 14:00>\n")
-    (goto-char (point-min))
-    (let ((event (chime--gather-info (point-marker))))
+  (test-chime-intervals--with-marker '(("WILD_NOTIFIER_NOTIFY_BEFORE" . "20"))
+    (let ((event (chime--gather-info marker)))
       (should (equal '((20 . medium)) (chime--event-intervals event)))
       (should (string= "WILD_NOTIFIER_NOTIFY_BEFORE"
                        (chime--event-deprecated-property event))))))
@@ -158,11 +148,8 @@ PROPS is a list of (NAME . VALUE) string pairs, or nil for no drawer."
 (ert-deftest test-chime-gather-info-integration-no-override-uses-global ()
   "Integration: a heading without the property gathers with chime-alert-intervals."
   (let ((chime-alert-intervals '((10 . medium) (0 . high))))
-    (with-temp-buffer
-      (org-mode)
-      (insert "* Meeting\n<2026-05-12 Tue 14:00>\n")
-      (goto-char (point-min))
-      (let ((event (chime--gather-info (point-marker))))
+    (test-chime-intervals--with-marker nil
+      (let ((event (chime--gather-info marker)))
         (should (equal '((10 . medium) (0 . high)) (chime--event-intervals event)))
         (should-not (chime--event-deprecated-property event))))))
 

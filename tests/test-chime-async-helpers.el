@@ -27,21 +27,32 @@
 ;;; Code:
 
 (require 'test-bootstrap (expand-file-name "test-bootstrap.el"))
+(require 'testutil-time (expand-file-name "testutil-time.el"))
 
 ;;; Setup and Teardown
 
 (defun test-chime-async-helpers-setup ()
-  "Reset counters and modeline state before each test."
+  "Reset counters, modeline state, and the deprecation-warning guard before each test."
   (setq chime--consecutive-async-failures 0)
   (setq chime-max-consecutive-failures 5)
   (setq chime-modeline-no-events-text "*")
-  (setq chime-modeline-string nil))
+  (setq chime-modeline-string nil)
+  (setq chime--deprecated-property-warned nil))
 
 (defun test-chime-async-helpers-teardown ()
-  "Restore default state after each test."
+  "Restore default state after each test, including the deprecation-warning guard."
   (setq chime--consecutive-async-failures 0)
   (setq chime-max-consecutive-failures 5)
-  (setq chime-modeline-string nil))
+  (setq chime-modeline-string nil)
+  (setq chime--deprecated-property-warned nil))
+
+(defun test-chime-async-helpers--event (title &optional deprecated-property)
+  "Build a minimal valid Chime event alist with TITLE.
+DEPRECATED-PROPERTY, when given, marks the event as having used a
+deprecated per-event property of that name."
+  (let ((time (test-time-tomorrow-at 14 0)))
+    (chime--make-event (list (cons (test-timestamp-string time) time))
+                       title '((10 . medium)) nil nil deprecated-property)))
 
 ;;;; Tests for chime--record-async-failure
 
@@ -103,19 +114,22 @@
         (setq chime--consecutive-async-failures 3)
         (chime--handle-async-success
          (lambda (events) (setq called-with events))
-         '(event1 event2))
+         (list (test-chime-async-helpers--event "A")
+               (test-chime-async-helpers--event "B")))
         (should (= 0 chime--consecutive-async-failures)))
     (test-chime-async-helpers-teardown)))
 
 (ert-deftest test-chime-handle-async-success-normal-invokes-callback-with-events ()
-  "Normal: calls the supplied callback with the events list."
+  "Normal: calls the supplied callback with the events list verbatim."
   (test-chime-async-helpers-setup)
   (unwind-protect
-      (let ((called-with 'unset))
+      (let* ((called-with 'unset)
+             (events (list (test-chime-async-helpers--event "A")
+                           (test-chime-async-helpers--event "B"))))
         (chime--handle-async-success
-         (lambda (events) (setq called-with events))
-         '(a b c))
-        (should (equal '(a b c) called-with)))
+         (lambda (e) (setq called-with e))
+         events)
+        (should (eq events called-with)))
     (test-chime-async-helpers-teardown)))
 
 (ert-deftest test-chime-handle-async-success-boundary-empty-events ()
@@ -134,13 +148,30 @@
   "Boundary: counter starts at zero, stays at zero, callback still fires."
   (test-chime-async-helpers-setup)
   (unwind-protect
-      (let ((called-with 'unset))
+      (let* ((called-with 'unset)
+             (events (list (test-chime-async-helpers--event "X"))))
         (setq chime--consecutive-async-failures 0)
         (chime--handle-async-success
-         (lambda (events) (setq called-with events))
-         '(x))
+         (lambda (e) (setq called-with e))
+         events)
         (should (= 0 chime--consecutive-async-failures))
-        (should (equal '(x) called-with)))
+        (should (eq events called-with)))
+    (test-chime-async-helpers-teardown)))
+
+(ert-deftest test-chime-handle-async-success-normal-warns-on-deprecated-property ()
+  "Normal: warns once when an event used a deprecated per-event property."
+  (test-chime-async-helpers-setup)
+  (unwind-protect
+      (let ((warned nil))
+        (cl-letf (((symbol-function 'display-warning)
+                   (lambda (_type msg &rest _) (push msg warned))))
+          (chime--handle-async-success
+           #'ignore
+           (list (test-chime-async-helpers--event "A")
+                 (test-chime-async-helpers--event "B" "WILD_NOTIFIER_NOTIFY_BEFORE"))))
+        (should (= 1 (length warned)))
+        (should (string-match-p "WILD_NOTIFIER_NOTIFY_BEFORE" (car warned)))
+        (should chime--deprecated-property-warned))
     (test-chime-async-helpers-teardown)))
 
 (provide 'test-chime-async-helpers)
