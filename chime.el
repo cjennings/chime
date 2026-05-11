@@ -634,6 +634,64 @@ The single format argument is the option name to customize."
   :group 'chime
   :type 'string)
 
+(defcustom chime-validating-message "Chime: Validating configuration..."
+  "Banner printed to *Messages* when validation runs interactively."
+  :package-version '(chime . "0.8.0")
+  :group 'chime
+  :type 'string)
+
+(defcustom chime-validation-summary-format "Chime: %d error%s, %d warning%s."
+  "Format string for the validation summary line in *Messages*.
+Receives four arguments: error count, error plural suffix, warning count,
+warning plural suffix."
+  :package-version '(chime . "0.8.0")
+  :group 'chime
+  :type 'string)
+
+(defcustom chime-async-failure-tooltip
+  "Event check failed — check *Messages* buffer"
+  "Modeline tooltip shown when an async event check fails."
+  :package-version '(chime . "0.8.0")
+  :group 'chime
+  :type 'string)
+
+(defcustom chime-validation-errors-message
+  "Chime: Configuration errors detected (see *Messages* buffer for details)"
+  "Banner printed to *Messages* after validation has exhausted retries."
+  :package-version '(chime . "0.8.0")
+  :group 'chime
+  :type 'string)
+
+(defcustom chime-validation-error-tooltip
+  "Configuration error — check *Messages* buffer"
+  "Modeline tooltip shown after validation has exhausted retries."
+  :package-version '(chime . "0.8.0")
+  :group 'chime
+  :type 'string)
+
+(defcustom chime-validation-waiting-message-format
+  "Chime: Waiting for org-agenda-files to load... (attempt %d/%d)"
+  "Format string for the validation-retry banner in *Messages*.
+Receives two arguments: current attempt number and the configured maximum."
+  :package-version '(chime . "0.8.0")
+  :group 'chime
+  :type 'string)
+
+(defcustom chime-validation-waiting-tooltip-format
+  "Waiting for org-agenda-files... (attempt %d/%d)"
+  "Format string for the validation-retry modeline tooltip.
+Receives two arguments: current attempt number and the configured maximum."
+  :package-version '(chime . "0.8.0")
+  :group 'chime
+  :type 'string)
+
+(defcustom chime-modeline-initial-tooltip
+  "Chime: waiting for first event check..."
+  "Modeline tooltip shown before the first event check completes."
+  :package-version '(chime . "0.8.0")
+  :group 'chime
+  :type 'string)
+
 (defcustom chime-sound-file
   (expand-file-name "sounds/chime.wav"
                     (file-name-directory
@@ -2000,7 +2058,7 @@ MESSAGE is nil for passing checks and contains issue details otherwise."
   "Display full validation RESULTS in the *Messages* buffer."
   (let ((errors 0)
         (warnings 0))
-    (message "Chime: Validating configuration...")
+    (message "%s" chime-validating-message)
     (dolist (result results)
       (pcase-let ((`(,severity ,description ,detail) result))
         (pcase severity
@@ -2014,7 +2072,7 @@ MESSAGE is nil for passing checks and contains issue details otherwise."
                  description)
         (when detail
           (message "        %s" detail))))
-    (message "Chime: %d error%s, %d warning%s."
+    (message chime-validation-summary-format
              errors
              (if (= errors 1) "" "s")
              warnings
@@ -2024,7 +2082,7 @@ MESSAGE is nil for passing checks and contains issue details otherwise."
 (defun chime-validate-configuration ()
   "Validate chime's runtime environment and configuration.
 Returns a list of (SEVERITY MESSAGE) pairs, or nil if all checks pass.
-SEVERITY is one of: :error :warning :info
+SEVERITY is one of: :error :warning
 
 Checks performed:
 - org-agenda-files is set and non-empty
@@ -2116,7 +2174,7 @@ persistent-failure warning, and switches the modeline to its error state."
     (chime--debug-log-async-error err))
   (chime--log-silently "Chime: %s: %s" prefix (error-message-string err))
   (chime--maybe-warn-persistent-failures)
-  (chime--set-modeline-error-state "Event check failed — check *Messages* buffer"))
+  (chime--set-modeline-error-state chime-async-failure-tooltip))
 
 (defun chime--handle-async-success (callback events)
   "Process a successful async fetch.  Invoke CALLBACK with EVENTS.
@@ -2179,15 +2237,15 @@ Returns nil if validation failed and check should be skipped."
                     (dolist (err errors)
                       (chime--log-silently "")
                       (chime--log-silently "ERROR: %s" (cadr err))))
-                  (message "Chime: Configuration errors detected (see *Messages* buffer for details)")
+                  (message "%s" chime-validation-errors-message)
                   ;; Update modeline tooltip to show error state
-                  (chime--set-modeline-error-state "Configuration error — check *Messages* buffer"))
-              (message "Chime: Waiting for org-agenda-files to load... (attempt %d/%d)"
+                  (chime--set-modeline-error-state chime-validation-error-tooltip))
+              (message chime-validation-waiting-message-format
                        chime--validation-retry-count
                        chime--validation-max-retries)
               ;; Update modeline tooltip to show waiting state
               (chime--set-modeline-error-state
-               (format "Waiting for org-agenda-files... (attempt %d/%d)"
+               (format chime-validation-waiting-tooltip-format
                        chime--validation-retry-count
                        chime--validation-max-retries)))
             nil)
@@ -2252,7 +2310,7 @@ Uses `chime-modeline-no-events-text' with a loading tooltip."
     (let ((map (make-sparse-keymap)))
       (define-key map [mode-line mouse-1] #'chime--open-calendar-url)
       (propertize chime-modeline-no-events-text
-                  'help-echo "Chime: waiting for first event check..."
+                  'help-echo chime-modeline-initial-tooltip
                   'mouse-face 'mode-line-highlight
                   'local-map map))))
 

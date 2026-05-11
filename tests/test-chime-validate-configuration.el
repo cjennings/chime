@@ -49,7 +49,7 @@
   (cl-some (lambda (issue) (eq (car issue) :warning)) issues))
 
 (defun test-chime-validate-configuration--count-issues (issues severity)
-  "Count number of ISSUES with given SEVERITY (:error, :warning, or :info)."
+  "Count number of ISSUES with given SEVERITY (:error or :warning)."
   (length (cl-remove-if-not (lambda (i) (eq (car i) severity)) issues)))
 
 ;;; Normal Cases - Valid Configurations
