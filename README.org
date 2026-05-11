@@ -215,7 +215,7 @@ If you're migrating from org-wild-notifier, update your configuration:
    - =org-wild-notifier-mode= → =chime-mode=
    - =org-wild-notifier-check= → =chime-check=
 
-4. Note: The =:WILD_NOTIFIER_NOTIFY_BEFORE:= / =:CHIME_NOTIFY_BEFORE:= property has been removed. Use the global =chime-alert-intervals= variable instead.
+4. The per-event reminder property is back. =:CHIME_NOTIFY_BEFORE: N= on a heading (N = a non-negative integer number of minutes) overrides =chime-alert-intervals= for that heading. The old =:WILD_NOTIFIER_NOTIFY_BEFORE:= name still works as a deprecated alias (chime warns once per session). See [[file:docs/CONFIGURATION.org][Configuration]] → "Per-Event Override".
 
 ** License
 :PROPERTIES:

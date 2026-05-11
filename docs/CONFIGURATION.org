@@ -41,6 +41,28 @@ Set when to receive notifications and their urgency levels using =(minutes . sev
 
 Severity levels are =high=, =medium=, and =low=. They are passed to [[https://github.com/jwiegley/alert][alert.el]], which maps them to your notification style or daemon.
 
+* Per-Event Override
+
+A single heading can override =chime-alert-intervals= with a property in its drawer:
+
+#+BEGIN_SRC org
+* Important meeting
+:PROPERTIES:
+:CHIME_NOTIFY_BEFORE: 30
+:END:
+SCHEDULED: <2026-05-10 Sun 14:00>
+#+END_SRC
+
+=:CHIME_NOTIFY_BEFORE:= takes a non-negative integer number of minutes. The example fires one notification 30 minutes before the event with =medium= severity, ignoring the global =chime-alert-intervals= for this heading. =0= means notify at event time.
+
+The property does not inherit — it applies to the heading it is set on, not to subheadings.
+
+A malformed value (non-integer, negative, fractional) is ignored: chime logs a message naming the heading and falls back to =chime-alert-intervals=.
+
+** Migrating from org-wild-notifier
+
+org-wild-notifier's =:WILD_NOTIFIER_NOTIFY_BEFORE:= property is honored as a deprecated alias. When a heading uses it, chime emits one warning per Emacs session pointing at the new name. Rename it to =:CHIME_NOTIFY_BEFORE:= when convenient; the alias will be removed in a future release.
+
 * Chime Sound
 
 #+BEGIN_SRC elisp
