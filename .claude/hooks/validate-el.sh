@@ -35,6 +35,13 @@ f="$(jq -r '.tool_input.file_path // .tool_response.filePath // empty')"
 [ -z "$f" ] && exit 0
 [ "${f##*.}" = "el" ] || exit 0
 
+# Skip files outside the project — the hook's -L paths only cover this repo,
+# so byte-compiling another project's .el will fail on its own requires.
+case "$f" in
+  "$PROJECT_ROOT"/*) ;;
+  *) exit 0 ;;
+esac
+
 MAX_AUTO_TEST_FILES=20  # skip if more matches than this (large test suites)
 
 # --- Phase 1: syntax + byte-compile ---
