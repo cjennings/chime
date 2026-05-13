@@ -3,10 +3,11 @@
 ;; Copyright (C) 2025-2026 Craig Jennings
 
 ;; Author: Craig Jennings <c@cjennings.net>
-;; Version: 1.0.0
-;; Package-Requires: ((emacs "27.1") (org "9.0"))
-;; Keywords: calendar, org-mode
 ;; URL: https://github.com/cjennings/chime
+
+;; This file is part of the chime package.  Version, Package-Requires, and
+;; Keywords live on the main file (chime.el); auxiliary files do not repeat
+;; them per package-lint convention.
 
 ;; This program is free software: you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
