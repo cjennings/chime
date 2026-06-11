@@ -740,6 +740,25 @@ Set to 0 to disable failure warnings."
          (chime--validate-integer-setting symbol value 0 nil)
          (set-default symbol value)))
 
+(defcustom chime-async-timeout 120
+  "Seconds an async event fetch may run before being interrupted.
+A child process that never returns — for example one stuck on an
+interactive prompt that batch mode cannot answer — would otherwise
+block every subsequent check forever, freezing the modeline without
+recording a failure.  When a running fetch exceeds this age, it is
+interrupted, recorded via `chime--record-async-failure', and a fresh
+fetch starts on the same check.
+
+The default is generous against known-slow agenda scans.  Set to nil
+to disable the watchdog."
+  :package-version '(chime . "0.8.0")
+  :group 'chime
+  :type '(choice (integer :tag "Seconds")
+                 (const :tag "Disabled" nil))
+  :set (lambda (symbol value)
+         (chime--validate-integer-setting symbol value 1 t)
+         (set-default symbol value)))
+
 (defcustom chime-debug nil
   "Enable debug functions for troubleshooting chime behavior.
 When non-nil, loads chime-debug.el which provides:
@@ -781,6 +800,11 @@ Set to t to enable debug functions:
 
 (defvar chime--process nil
   "Currently-running async process.")
+
+(defvar chime--process-start-time nil
+  "Time the currently-running async process was spawned.
+Consulted by the watchdog in `chime--fetch-and-process' to detect a
+child that exceeded `chime-async-timeout'.")
 
 (defvar chime--consecutive-async-failures 0
   "Count of consecutive async check failures.
@@ -2267,12 +2291,38 @@ deprecated per-event property."
   (chime--maybe-warn-deprecated-properties events)
   (funcall callback events))
 
+(defun chime--interrupt-stale-process ()
+  "Interrupt an async child that has outlived `chime-async-timeout'.
+A child that never returns (e.g. stuck on an interactive prompt in batch
+mode) is invisible to every failure path — it returns no error sexp, so
+`chime--consecutive-async-failures' never increments while the overlap
+guard silently skips every subsequent check.  Interrupting it and
+recording the timeout through `chime--record-async-failure' routes the
+hang into the existing failure machinery and frees the next check to
+spawn a fresh child.  Does nothing when `chime-async-timeout' is nil."
+  (when (and chime-async-timeout
+             chime--process
+             (process-live-p chime--process)
+             chime--process-start-time
+             (> (float-time (time-subtract (current-time)
+                                           chime--process-start-time))
+                chime-async-timeout))
+    (interrupt-process chime--process)
+    (setq chime--process nil)
+    (chime--record-async-failure
+     (list 'error (format "Async fetch exceeded chime-async-timeout (%ds)"
+                          chime-async-timeout))
+     "Async watchdog")))
+
 (defun chime--fetch-and-process (callback)
   "Asynchronously fetch events from agenda and invoke CALLBACK with them.
 Manages async process state and last-check-time internally.
-Does nothing if a check is already in progress."
+Does nothing if a check is already in progress, unless that check has
+exceeded `chime-async-timeout' — then it is interrupted and replaced."
+  (chime--interrupt-stale-process)
   (unless (and chime--process
                (process-live-p chime--process))
+    (setq chime--process-start-time (current-time))
     (setq chime--process
           (let ((default-directory user-emacs-directory)
                 (async-prompt-for-password nil)
