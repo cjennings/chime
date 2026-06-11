@@ -1704,6 +1704,11 @@ list of internal event alists."
   `(lambda ()
     (setf org-agenda-use-time-grid nil)
     (setf org-agenda-compact-blocks t)
+    ;; A vanished agenda file must be skipped, not prompted about: org's
+    ;; interactive "[R]emove from list or [A]bort?" recovery blocks a
+    ;; -batch child forever, and a child that never returns freezes every
+    ;; subsequent check via the overlap guard in chime--fetch-and-process.
+    (setf org-agenda-skip-unavailable-files t)
     ,(async-inject-variables (chime--environment-regex))
 
     (package-initialize)
