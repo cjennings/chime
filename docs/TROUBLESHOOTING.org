@@ -178,3 +178,20 @@ For custom predicate functions, ensure any variables they depend on are availabl
 #+BEGIN_SRC elisp
 (setq chime-additional-environment-regexes '("my-custom-var"))
 #+END_SRC
+
+* Modeline Frozen on a Stale Countdown
+
+If the modeline shows a countdown that never advances past an old event,
+the background fetch process likely hung, blocking every later check.
+Chime's watchdog interrupts a fetch after =chime-async-timeout= seconds
+(default 120) and logs "Async watchdog" to =*Messages*=, so a hang heals
+itself within one timeout plus one check interval.
+
+If you see repeated "Async watchdog" log lines, something in the fetch is
+consistently hanging or too slow:
+
+- A very large agenda can legitimately exceed the timeout — raise it:
+  =(setq chime-async-timeout 300)=
+- An entry in =org-agenda-files= pointing at a deleted file used to hang
+  the fetch on org's recovery prompt; chime now skips missing files, but
+  cleaning up stale entries keeps the agenda scan honest.

@@ -383,6 +383,25 @@ Today's events always show if you launch Emacs after the alert time. This settin
 (setq chime-max-consecutive-failures 0)
 #+END_SRC
 
+** Async Fetch Timeout
+
+Event fetching runs in a background Emacs process. If that process never
+returns — for example, it hits an interactive prompt that batch mode can't
+answer — chime interrupts it after =chime-async-timeout= seconds, records
+the failure, and starts a fresh fetch on the next check. Without this
+watchdog, a hung fetch would silently block every subsequent check.
+
+#+BEGIN_SRC elisp
+;; Interrupt a fetch that runs longer than 2 minutes (default)
+(setq chime-async-timeout 120)
+
+;; Allow slower agenda scans more time
+(setq chime-async-timeout 300)
+
+;; Disable the watchdog entirely
+(setq chime-async-timeout nil)
+#+END_SRC
+
 ** Extra Alert Arguments
 
 #+BEGIN_SRC elisp
