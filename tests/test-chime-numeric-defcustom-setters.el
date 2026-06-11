@@ -161,6 +161,32 @@
                    'chime-max-consecutive-failures -1)
                   :type 'user-error)))
 
+;;;; chime-async-timeout — integer >= 1, or nil to disable
+
+(ert-deftest test-chime-async-timeout-accepts-positive-integer ()
+  "Normal: a positive timeout in seconds lands."
+  (let ((chime-async-timeout 120))
+    (customize-set-variable 'chime-async-timeout 300)
+    (should (= 300 chime-async-timeout))))
+
+(ert-deftest test-chime-async-timeout-accepts-nil ()
+  "Boundary: nil disables the watchdog (per docstring)."
+  (let ((chime-async-timeout 120))
+    (customize-set-variable 'chime-async-timeout nil)
+    (should (null chime-async-timeout))))
+
+(ert-deftest test-chime-async-timeout-rejects-zero ()
+  "Error: a zero-second timeout would interrupt every spawn immediately."
+  (let ((chime-async-timeout 120))
+    (should-error (customize-set-variable 'chime-async-timeout 0)
+                  :type 'user-error)))
+
+(ert-deftest test-chime-async-timeout-rejects-non-integer ()
+  "Error: a string raises `user-error' at customize time."
+  (let ((chime-async-timeout 120))
+    (should-error (customize-set-variable 'chime-async-timeout "120")
+                  :type 'user-error)))
+
 ;; Note: `chime--validation-max-retries' was demoted from defcustom to
 ;; defvar in 0.8 — no customize-time setter, no validation tests here.
 
