@@ -4,15 +4,17 @@
 
 [[https://www.gnu.org/software/emacs/][file:assets/made-for-emacs-badge.svg]]
 
-#+begin_verse
 /Whether we wake or we sleep,/
+
 /Whether we carol or weep,/
+
 /The Sun with his Planets in chime,/
+
 /Marketh the going of Time./
-#+end_verse
+
 — /Edward Fitzgerald/
 
-CHIME (backronym: *CHIME Heralds Imminent Modeline Events*) makes sure your org-agenda events don't whoosh by unnoticed. You get desktop notifications, an audible chime, and your next event shows up in the modeline.
+CHIME (backronym: *CHIME Heralds Imminent Modeline Events*) keeps your org-agenda events from slipping past unnoticed. You get desktop notifications, an audible chime, and your next event shows up in the modeline.
 
 ** Features
 :PROPERTIES:
