@@ -2,10 +2,10 @@
 
 (package "chime"
          "0.7.0"
-         "CHIME Heralds Imminent Modeline Events")
+         "Modeline and desktop notifications for org-agenda")
 
 (website-url "https://github.com/cjennings/chime")
-(keywords "notification" "alert" "org" "org-agenda" "calendar")
+(keywords "calendar" "convenience" "notification" "alert" "org-agenda")
 
 (package-file "chime.el")
 (files "chime.el"
