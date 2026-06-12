@@ -15,7 +15,11 @@ set -u
 # Emit a JSON failure payload and exit 2. Arguments:
 #   $1 — short failure type (e.g. "PAREN CHECK FAILED")
 #   $2 — file path
-#   $3 — emacs output (error body)
+#   $3 — emacs output (error body), always sent to Claude in additionalContext
+#   $4 — optional compact terminal echo; when set, the terminal shows this
+#        instead of the full $3 (Claude still gets the full $3). Used by the
+#        test runner so a failing suite prints a short summary to the pane
+#        rather than dumping every ERT backtrace.
 fail_json() {
     local ctx
     ctx="$(printf '%s: %s\n\n%s\n\nFix before proceeding.' "$1" "$2" "$3" \
@@ -23,7 +27,7 @@ fail_json() {
     cat <<EOF
 {"hookSpecificOutput": {"hookEventName": "PostToolUse", "additionalContext": $ctx}}
 EOF
-    printf '%s: %s\n%s\n' "$1" "$2" "$3" >&2
+    printf '%s: %s\n%s\n' "$1" "$2" "${4:-$3}" >&2
     exit 2
 }
 
@@ -34,13 +38,6 @@ PROJECT_ROOT="${CLAUDE_PROJECT_DIR:-$(cd "$(dirname "$0")/../.." && pwd)}"
 f="$(jq -r '.tool_input.file_path // .tool_response.filePath // empty')"
 [ -z "$f" ] && exit 0
 [ "${f##*.}" = "el" ] || exit 0
-
-# Skip files outside the project — the hook's -L paths only cover this repo,
-# so byte-compiling another project's .el will fail on its own requires.
-case "$f" in
-  "$PROJECT_ROOT"/*) ;;
-  *) exit 0 ;;
-esac
 
 MAX_AUTO_TEST_FILES=20  # skip if more matches than this (large test suites)
 
@@ -58,6 +55,7 @@ case "$f" in
                      -L "$PROJECT_ROOT" \
                      -L "$PROJECT_ROOT/modules" \
                      -L "$PROJECT_ROOT/tests" \
+                     -L "$PROJECT_ROOT/themes" \
                      --eval '(package-initialize)' \
                      "$f" \
                      --eval '(check-parens)' \
@@ -95,17 +93,21 @@ count="${#tests[@]}"
 if [ "$count" -ge 1 ] && [ "$count" -le "$MAX_AUTO_TEST_FILES" ]; then
   load_args=()
   for t in "${tests[@]}"; do load_args+=("-l" "$t"); done
-  # Run from tests/ so each file's `(require 'test-bootstrap (expand-file-name
-  # "test-bootstrap.el"))` resolves against the directory the bootstrap lives in,
-  # not the project root.
-  if ! output="$(cd "$PROJECT_ROOT/tests" && emacs --batch --no-site-file --no-site-lisp \
+  if ! output="$(emacs --batch --no-site-file --no-site-lisp \
                    -L "$PROJECT_ROOT" \
                    -L "$PROJECT_ROOT/modules" \
                    -L "$PROJECT_ROOT/tests" \
+                   -L "$PROJECT_ROOT/themes" \
                    --eval '(package-initialize)' \
                    -l ert "${load_args[@]}" \
                    --eval "(ert-run-tests-batch-and-exit '(not (tag :slow)))" 2>&1)"; then
-    fail_json "TESTS FAILED ($count test file(s))" "$f" "$output"
+    # Terminal gets a compact summary (the run tally + the failing test names);
+    # Claude still gets the full backtrace via additionalContext.  Keeps the
+    # pane from drowning in ERT stack frames on every red test.
+    summary="$(printf '%s\n' "$output" \
+        | grep -E '^Ran [0-9]+ tests|unexpected results:|^[[:space:]]+FAILED' || true)"
+    [ -n "$summary" ] && summary="${summary}"$'\n'"(full backtrace in Claude's context)"
+    fail_json "TESTS FAILED ($count test file(s))" "$f" "$output" "$summary"
   fi
 fi
 
