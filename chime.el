@@ -460,6 +460,23 @@ Examples:
   :type '(choice (const :tag "Show nothing" nil)
                  (string :tag "Custom text")))
 
+(defcustom chime-modeline-soon-threshold-minutes 30
+  "Minutes-until threshold for the \"soon\" modeline face.
+When the soonest modeline event is this many minutes away or fewer (but
+more than `chime-modeline-urgent-threshold-minutes'), the modeline event
+display uses `chime-modeline-soon-face'."
+  :package-version '(chime . "0.7.0")
+  :group 'chime
+  :type 'number)
+
+(defcustom chime-modeline-urgent-threshold-minutes 5
+  "Minutes-until threshold for the \"urgent\" modeline face.
+When the soonest modeline event is this many minutes away or fewer, the
+modeline event display uses `chime-modeline-urgent-face'."
+  :package-version '(chime . "0.7.0")
+  :group 'chime
+  :type 'number)
+
 (defcustom chime-notification-text-format "%t at %T (%u)"
   "Format string for notification text display.
 Available placeholders:
@@ -792,6 +809,44 @@ Set to t to enable debug functions:
 ;; by the user, not by chime itself.  See the README for the recommended
 ;; `(with-eval-after-load 'org-capture (require 'chime-org-contacts))' or
 ;; `use-package chime-org-contacts :after org-capture' setup.
+
+;;;; Faces
+
+(defface chime-modeline-face
+  '((t :inherit mode-line))
+  "Face for the modeline event display when the next event is not soon.
+This is the default appearance.  It inherits `mode-line', so the modeline
+looks unchanged until you theme it or the soonest event crosses the
+soon/urgent thresholds."
+  :package-version '(chime . "0.7.0")
+  :group 'chime)
+
+(defface chime-modeline-soon-face
+  '((t :inherit warning))
+  "Face for the modeline event display when the next event is soon.
+Applied when the soonest event is within
+`chime-modeline-soon-threshold-minutes'.  Inherits `warning' so it stands
+out sensibly across themes."
+  :package-version '(chime . "0.7.0")
+  :group 'chime)
+
+(defface chime-modeline-urgent-face
+  '((t :inherit error))
+  "Face for the modeline event display when the next event is imminent.
+Applied when the soonest event is within
+`chime-modeline-urgent-threshold-minutes'.  Inherits `error' so it draws
+the eye across themes."
+  :package-version '(chime . "0.7.0")
+  :group 'chime)
+
+(defface chime-modeline-no-events-face
+  '((t :inherit mode-line))
+  "Face for the modeline idle indicator when no event is in range.
+Applied to `chime-modeline-no-events-text' and to the loading and error
+indicators.  Inherits `mode-line' so the idle icon looks unchanged until
+you theme it."
+  :package-version '(chime . "0.7.0")
+  :group 'chime)
 
 ;;;; Internal State
 
@@ -1436,21 +1491,36 @@ The result is plain text suitable for the modeline `help-echo' property."
                     (format chime-tooltip-increase-lookahead-format increase-var))
             chime-tooltip-left-click-label)))
 
-(defun chime--propertize-modeline-string (text)
+(defun chime--modeline-urgency-face (minutes)
+  "Return the modeline face symbol for an event MINUTES away.
+Maps to `chime-modeline-urgent-face' at or under
+`chime-modeline-urgent-threshold-minutes', `chime-modeline-soon-face' at or
+under `chime-modeline-soon-threshold-minutes', otherwise
+`chime-modeline-face'."
+  (cond
+   ((<= minutes chime-modeline-urgent-threshold-minutes)
+    'chime-modeline-urgent-face)
+   ((<= minutes chime-modeline-soon-threshold-minutes)
+    'chime-modeline-soon-face)
+   (t 'chime-modeline-face)))
+
+(defun chime--propertize-modeline-string (text &optional face)
   "Add tooltip and click handlers to modeline TEXT.
+Apply FACE (a face symbol) as the `face' text property when non-nil.
 Left-click opens calendar URL (if set), right-click jumps to event."
   (if (null chime--upcoming-events)
-      text
+      (if face (propertize text 'face face) text)
     (let ((map (make-sparse-keymap))
           (tooltip (chime--make-tooltip chime--upcoming-events)))
       ;; Left-click: open calendar URL
       (define-key map [mode-line mouse-1] #'chime--open-calendar-url)
       ;; Right-click: jump to event
       (define-key map [mode-line mouse-3] #'chime--jump-to-first-event)
-      (propertize text
-                  'help-echo tooltip
-                  'mouse-face 'mode-line-highlight
-                  'local-map map))))
+      (apply #'propertize text
+             (append (when face (list 'face face))
+                     (list 'help-echo tooltip
+                           'mouse-face 'mode-line-highlight
+                           'local-map map))))))
 
 (defun chime--deduplicate-events-by-title (upcoming-events)
   "Collapse UPCOMING-EVENTS that come from the same source heading.
@@ -1573,7 +1643,8 @@ Returns a propertized string, or nil when nothing should be shown."
   (cond
    (soonest-modeline
     (chime--propertize-modeline-string
-     (format chime-modeline-format (nth 3 soonest-modeline))))
+     (format chime-modeline-format (nth 3 soonest-modeline))
+     (chime--modeline-urgency-face (nth 2 soonest-modeline))))
    (chime-modeline-no-events-text
     (let ((map (make-sparse-keymap))
           (tooltip-text (if upcoming
@@ -1583,6 +1654,7 @@ Returns a propertized string, or nil when nothing should be shown."
       (when upcoming
         (define-key map [mode-line mouse-3] #'chime--jump-to-first-event))
       (propertize chime-modeline-no-events-text
+                  'face 'chime-modeline-no-events-face
                   'help-echo tooltip-text
                   'mouse-face 'mode-line-highlight
                   'local-map map)))))
@@ -2430,6 +2502,7 @@ Keeps the icon visible so the user knows chime is running but has a problem."
       (define-key map [mode-line mouse-1] #'chime--open-calendar-url)
       (setq chime-modeline-string
             (propertize chime-modeline-no-events-text
+                        'face 'chime-modeline-no-events-face
                         'help-echo (format "Chime: %s" error-message)
                         'mouse-face 'mode-line-highlight
                         'local-map map))
@@ -2442,6 +2515,7 @@ Uses `chime-modeline-no-events-text' with a loading tooltip."
     (let ((map (make-sparse-keymap)))
       (define-key map [mode-line mouse-1] #'chime--open-calendar-url)
       (propertize chime-modeline-no-events-text
+                  'face 'chime-modeline-no-events-face
                   'help-echo chime-modeline-initial-tooltip
                   'mouse-face 'mode-line-highlight
                   'local-map map))))

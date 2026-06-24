@@ -24,6 +24,7 @@ CHIME (backronym: *CHIME Heralds Imminent Modeline Events*) keeps your org-agend
 - Desktop notifications with configurable alert intervals and urgency
 - Optional audible chime sound, using the bundled WAV or a custom file
 - Interactive modeline display for the next timed event
+- Themeable modeline faces that shift color as the next event gets closer
 - Hover tooltip with upcoming events grouped by day
 - Left-click calendar URL and right-click jump-to-org-entry actions
 - SCHEDULED, DEADLINE, plain timestamp, and repeating timestamp support

@@ -208,6 +208,38 @@ Larger values increase the agenda span fetched by the async subprocess and can s
 (setq chime-calendar-url "https://calendar.google.com")
 #+END_SRC
 
+** Faces
+
+The modeline event display is themeable. Chime colors it by how soon the next
+event is, using three faces, plus a fourth for the idle indicator:
+
+- =chime-modeline-face= — the next event is more than
+  =chime-modeline-soon-threshold-minutes= away. Inherits =mode-line=, so the
+  modeline looks unchanged until you theme it.
+- =chime-modeline-soon-face= — the next event is within the soon threshold.
+  Inherits =warning=.
+- =chime-modeline-urgent-face= — the next event is within
+  =chime-modeline-urgent-threshold-minutes=. Inherits =error=.
+- =chime-modeline-no-events-face= — shown for the idle indicator
+  (=chime-modeline-no-events-text=, and the loading and error icons).
+  Inherits =mode-line=.
+
+The two thresholds control where the soon and urgent faces kick in (in
+minutes until the event):
+
+#+BEGIN_SRC elisp
+(setq chime-modeline-soon-threshold-minutes 30)   ;; soon face at 30 min or less
+(setq chime-modeline-urgent-threshold-minutes 5)  ;; urgent face at 5 min or less
+#+END_SRC
+
+Customize the faces like any other. They inherit sensible built-ins, so they
+adapt to your theme out of the box; override when you want something specific:
+
+#+BEGIN_SRC elisp
+(custom-set-faces
+ '(chime-modeline-urgent-face ((t :foreground "red" :weight bold))))
+#+END_SRC
+
 * Notification Text
 
 Control what appears in notifications and the modeline event text:
