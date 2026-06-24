@@ -28,10 +28,6 @@
 
 (require 'test-bootstrap (expand-file-name "test-bootstrap.el"))
 
-;; Load test utilities
-(require 'testutil-general (expand-file-name "testutil-general.el"))
-(require 'testutil-time (expand-file-name "testutil-time.el"))
-
 ;;; Normal Cases
 
 (ert-deftest test-chime-filter-day-wide-events-keeps-timed-event ()

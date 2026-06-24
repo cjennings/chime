@@ -32,7 +32,6 @@
 ;;; Code:
 
 (require 'test-bootstrap (expand-file-name "test-bootstrap.el"))
-(require 'testutil-time (expand-file-name "testutil-time.el"))
 (require 'cl-lib)
 
 ;;; Helpers

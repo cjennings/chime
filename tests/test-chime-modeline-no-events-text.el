@@ -31,10 +31,6 @@
 
 (require 'test-bootstrap (expand-file-name "test-bootstrap.el"))
 
-;; Load test utilities
-(require 'testutil-general (expand-file-name "testutil-general.el"))
-(require 'testutil-time (expand-file-name "testutil-time.el"))
-
 ;;; Setup and Teardown
 
 (defvar test-chime-modeline-no-events-text--orig-lookahead nil)

@@ -9,7 +9,6 @@
 ;;; Code:
 
 (require 'test-bootstrap (expand-file-name "test-bootstrap.el"))
-(require 'testutil-general (expand-file-name "testutil-general.el"))
 
 (ert-deftest test-chime-test-default-base-dir-uses-env-override ()
   "Normal: CHIME_TEST_TMPDIR selects an explicit test root."

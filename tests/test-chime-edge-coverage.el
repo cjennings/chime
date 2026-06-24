@@ -26,7 +26,6 @@
 ;;; Code:
 
 (require 'test-bootstrap (expand-file-name "test-bootstrap.el"))
-(require 'testutil-time (expand-file-name "testutil-time.el"))
 (require 'cl-lib)
 
 ;;;; chime--day-wide-notification-text fallback (chime.el ~ "t branch")

@@ -33,10 +33,6 @@
 
 (require 'test-bootstrap (expand-file-name "test-bootstrap.el"))
 
-;; Load test utilities
-(require 'testutil-general (expand-file-name "testutil-general.el"))
-(require 'testutil-time (expand-file-name "testutil-time.el"))
-
 (defmacro test-chime-with-restored-day-wide-alert-times (&rest body)
   "Run BODY and restore default `chime-day-wide-alert-times' afterwards."
   (declare (indent 0) (debug t))

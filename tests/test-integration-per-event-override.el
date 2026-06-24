@@ -32,7 +32,6 @@
 ;;; Code:
 
 (require 'test-bootstrap (expand-file-name "test-bootstrap.el"))
-(require 'testutil-general (expand-file-name "testutil-general.el"))
 (require 'cl-lib)
 
 (defun test-integration-per-event-override--events-from-agenda ()

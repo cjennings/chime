@@ -30,8 +30,6 @@
 (require 'test-bootstrap (expand-file-name "test-bootstrap.el"))
 
 ;; Load test utilities
-(require 'testutil-general (expand-file-name "testutil-general.el"))
-(require 'testutil-time (expand-file-name "testutil-time.el"))
 (require 'testutil-events (expand-file-name "testutil-events.el"))
 
 ;;; Setup and Teardown

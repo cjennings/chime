@@ -31,10 +31,6 @@
 (setq chime-debug t)
 (require 'test-bootstrap (expand-file-name "test-bootstrap.el"))
 
-;; Load test utilities
-(require 'testutil-general (expand-file-name "testutil-general.el"))
-(require 'testutil-time (expand-file-name "testutil-time.el"))
-
 ;;; Tests for chime--convert-12hour-to-24hour
 
 (ert-deftest test-12hour-convert-1pm-to-13 ()

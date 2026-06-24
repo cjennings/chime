@@ -23,7 +23,6 @@
 ;;; Code:
 
 (require 'test-bootstrap (expand-file-name "test-bootstrap.el"))
-(require 'testutil-time (expand-file-name "testutil-time.el"))
 
 (ert-deftest test-chime-day-wide-notifications-normal-wraps-with-medium-severity ()
   "Normal: each generated text is wrapped as (TEXT . \\='medium)."

@@ -27,9 +27,6 @@
 
 (require 'test-bootstrap (expand-file-name "test-bootstrap.el"))
 
-;; Load test utilities
-(require 'testutil-general (expand-file-name "testutil-general.el"))
-
 ;;; Normal Cases
 
 (ert-deftest test-chime-extract-title-plain-heading ()

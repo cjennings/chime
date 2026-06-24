@@ -19,7 +19,6 @@
 ;;; Code:
 
 (require 'test-bootstrap (expand-file-name "test-bootstrap.el"))
-(require 'testutil-general (expand-file-name "testutil-general.el"))
 
 (defun test-chime-jump-to-event--make-temp-org-file (content)
   "Write CONTENT to a temp .org file under the test base dir and return its path."

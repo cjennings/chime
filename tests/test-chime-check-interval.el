@@ -26,9 +26,6 @@
 
 (require 'test-bootstrap (expand-file-name "test-bootstrap.el"))
 
-;; Load test utilities
-(require 'testutil-general (expand-file-name "testutil-general.el"))
-
 ;;; Setup and Teardown
 
 (defun test-chime-check-interval-setup ()

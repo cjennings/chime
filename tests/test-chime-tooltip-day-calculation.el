@@ -13,8 +13,6 @@
 ;;; Code:
 
 (require 'test-bootstrap (expand-file-name "test-bootstrap.el"))
-(require 'testutil-time (expand-file-name "testutil-time.el"))
-(require 'testutil-general (expand-file-name "testutil-general.el"))
 (require 'testutil-events (expand-file-name "testutil-events.el"))
 
 (defmacro test-chime-tooltip-day-calculation--with-tooltip (now content &rest body)
