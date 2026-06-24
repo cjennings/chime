@@ -17,3 +17,6 @@
 .claude/
 /chime-autoloads.el
 /tests/tests-autoloads.el
+CLAUDE.md
+githooks/
+/coverage-makefile.txt

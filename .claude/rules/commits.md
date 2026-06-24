@@ -1,1 +1,0 @@
-/home/cjennings/code/rulesets/claude-rules/commits.md
