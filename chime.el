@@ -2038,48 +2038,28 @@ delimiters for unmatched openings.
 Returns sanitized title or empty string if TITLE is nil."
   (if (not title)
       ""
-    (let ((chars (string-to-list title))
-          (stack '())  ; Stack to track opening delimiters in order
+    (let ((pairs '((?\( . ?\)) (?\[ . ?\]) (?\{ . ?\})))
+          (stack '())  ; opening delimiters seen, most recent first
           (result '()))
-      ;; Process each character
-      (dolist (char chars)
+      (dolist (char (string-to-list title))
         (cond
-         ;; Opening delimiters - add to stack and result
-         ((memq char '(?\( ?\[ ?\{))
+         ;; Opening delimiter - remember it and keep it.
+         ((assq char pairs)
           (push char stack)
           (push char result))
-         ;; Closing delimiters - check if they match
-         ((eq char ?\))
-          (if (and stack (eq (car stack) ?\())
-              (progn
-                (pop stack)
-                (push char result))
-            ;; Unmatched closing paren - skip it
-            nil))
-         ((eq char ?\])
-          (if (and stack (eq (car stack) ?\[))
-              (progn
-                (pop stack)
-                (push char result))
-            ;; Unmatched closing bracket - skip it
-            nil))
-         ((eq char ?\})
-          (if (and stack (eq (car stack) ?\{))
-              (progn
-                (pop stack)
-                (push char result))
-            ;; Unmatched closing brace - skip it
-            nil))
-         ;; Regular characters - add to result
+         ;; Closing delimiter - keep only when it closes the current opener;
+         ;; an unmatched closer is dropped.
+         ((rassq char pairs)
+          (when (and stack (eq (cdr (assq (car stack) pairs)) char))
+            (pop stack)
+            (push char result)))
+         ;; Regular character.
          (t
           (push char result))))
-      ;; Add closing delimiters for any remaining opening delimiters
+      ;; Close any still-open delimiters, innermost first.
       (dolist (opener stack)
-        (cond
-         ((eq opener ?\() (push ?\) result))
-         ((eq opener ?\[) (push ?\] result))
-         ((eq opener ?\{) (push ?\} result))))
-      ;; Convert back to string (reverse because we built it backwards)
+        (push (cdr (assq opener pairs)) result))
+      ;; Convert back to string (reverse because we built it backwards).
       (concat (nreverse result)))))
 
 (defun chime--extract-title (marker)
