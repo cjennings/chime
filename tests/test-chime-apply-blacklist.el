@@ -41,7 +41,10 @@
 (defun test-chime-apply-blacklist-teardown ()
   "Teardown function run after each test."
   (chime-delete-test-base-dir)
-  (setq chime-exclude-filters nil))
+  ;; Restore the defcustom default rather than leaving the global clobbered.
+  ;; Each test let-binds `chime-exclude-filters', so the global only needs to
+  ;; return to its standard value to keep cross-file test isolation.
+  (custom-reevaluate-setting 'chime-exclude-filters))
 
 ;;; Normal Cases
 

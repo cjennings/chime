@@ -45,8 +45,11 @@
 (defun test-chime-conflicts-teardown ()
   "Teardown function run after each test."
   (chime-delete-test-base-dir)
-  (setq chime-include-filters nil)
-  (setq chime-exclude-filters nil))
+  ;; Restore the defcustom defaults rather than leaving the globals clobbered.
+  ;; Each test let-binds both filter vars, so the globals only need to return
+  ;; to their standard values to keep cross-file test isolation.
+  (custom-reevaluate-setting 'chime-include-filters)
+  (custom-reevaluate-setting 'chime-exclude-filters))
 
 ;;; Keyword Conflict Tests
 
