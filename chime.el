@@ -1839,7 +1839,13 @@ because that is what real org-gcal exports use."
                  "org-todo-keywords"
                  "chime-alert-intervals"
                  "chime-include-filters"
-                 "chime-exclude-filters")))
+                 "chime-exclude-filters"
+                 ;; The child sizes its agenda span from these two.  The
+                 ;; child requires chime, so an uninjected one is bound at
+                 ;; its default there and a user's customization is
+                 ;; silently ignored rather than erroring.
+                 "chime-modeline-lookahead-minutes"
+                 "chime-tooltip-lookahead-hours")))
         string-end)))
 
 (defun chime--environment-regex ()
