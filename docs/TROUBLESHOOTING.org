@@ -104,6 +104,17 @@ or when =chime-sound-player= is set to ='emacs=. Two fixes:
   #+END_SRC
   This one repairs every ALSA client on the machine, not just Emacs.
 
+*** The system fix doesn't reach a running Emacs
+
+alsa-lib parses its configuration once per process. A long-running
+=emacs --daemon= that started before you added the ALSA config keeps the old
+view, so =play-sound-file= still fails there while it succeeds in a fresh
+=emacs -Q=. Restart the daemon, or set =chime-sound-device= to a device that
+was already defined ("pipewire" or "pulse" both work without the =default=
+fix, because =50-pipewire.conf= defines them).
+
+This is worth knowing before you conclude the system fix didn't work.
+
 On macOS, Emacs is built without sound support, so =play-sound-file=
 signals rather than playing. Chime uses =afplay=, which ships with the OS,
 so this only bites if =chime-sound-player= is forced to ='emacs=.
