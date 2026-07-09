@@ -1310,20 +1310,26 @@ For timed events, checks if the time is today (past or future)."
 (defun chime--days-until-event (all-times)
   "Calculate minimum days until the soonest all-day timestamp in ALL-TIMES.
 ALL-TIMES is a list of (TIMESTAMP-STR . TIME-OBJECT) cons cells.
-Returns integer days (ceiling), or nil if no all-day timestamps found."
-  (let ((now (current-time)))
-    (-min
-     (--map
-      (when-let* ((timestamp-str (car it))
-                  (is-all-day (not (chime--has-timestamp timestamp-str)))
-                  (parsed (org-parse-time-string timestamp-str))
-                  (year (nth 5 parsed))
-                  (month (nth 4 parsed))
-                  (day (nth 3 parsed)))
-        (let* ((event-time (encode-time 0 0 0 day month year))
-               (seconds-until (time-subtract event-time now)))
-          (ceiling (/ (float-time seconds-until) 86400.0))))
-      all-times))))
+Returns integer days (ceiling), or nil if no all-day timestamps found.
+
+A timed timestamp contributes no day count, so an event mixing timed and
+all-day timestamps yields nils that must be dropped before `-min' sees
+them.  An event with no all-day timestamp at all leaves nothing to
+minimize, hence the nil return the docstring promises."
+  (let* ((now (current-time))
+         (days (-non-nil
+                (--map
+                 (when-let* ((timestamp-str (car it))
+                             (is-all-day (not (chime--has-timestamp timestamp-str)))
+                             (parsed (org-parse-time-string timestamp-str))
+                             (year (nth 5 parsed))
+                             (month (nth 4 parsed))
+                             (day (nth 3 parsed)))
+                   (let* ((event-time (encode-time 0 0 0 day month year))
+                          (seconds-until (time-subtract event-time now)))
+                     (ceiling (/ (float-time seconds-until) 86400.0))))
+                 all-times))))
+    (when days (-min days))))
 
 (defun chime--day-wide-notification-text (event)
   "Generate notification text for day-wide EVENT.
@@ -1338,6 +1344,10 @@ Handles both same-day events and advance notices."
      (is-advance-notice
       (let ((days-until (chime--days-until-event (chime--event-times event))))
         (cond
+         ;; No all-day timestamp means no day count to report.  The
+         ;; advance-notice window should have excluded such an event, so
+         ;; this is a belt-and-braces guard against a nil reaching `='.
+         ((null days-until) (format "%s is due or scheduled today" title))
          ((= days-until 1) (format "%s is tomorrow" title))
          ((= days-until 2) (format "%s is in 2 days" title))
          (t (format "%s is in %d days" title days-until)))))
