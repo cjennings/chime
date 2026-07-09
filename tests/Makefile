@@ -100,8 +100,10 @@ endif
 	fi; \
 	printf "$(YELLOW)Running tests in $$TESTFILE...$(NC)\n"; \
 	$(EMACS_BATCH) -l ert -l "$$TESTFILE" \
-		--eval "$(ERT_FAST_SELECTOR)" 2>&1 | tee $(PROJECT_ROOT)/tests/test-file-output.log; \
-	if [ $$? -eq 0 ]; then \
+		--eval "$(ERT_FAST_SELECTOR)" > $(PROJECT_ROOT)/tests/test-file-output.log 2>&1; \
+	status=$$?; \
+	cat $(PROJECT_ROOT)/tests/test-file-output.log; \
+	if [ $$status -eq 0 ]; then \
 		printf "$(GREEN)✓ All tests in $$TESTFILE passed!$(NC)\n"; \
 	else \
 		printf "$(RED)✗ Some tests failed.$(NC)\n"; \
@@ -201,7 +203,7 @@ validate:
 	for file in ../chime.el test-*.el testutil-*.el; do \
 		if [ -f "$$file" ] && [ ! -d "$$file" ]; then \
 			total=$$((total + 1)); \
-			output=$$(emacs --batch -Q --eval "(progn \
+			raw=$$(emacs --batch -Q --eval "(progn \
 				(setq byte-compile-error-on-warn nil) \
 				(find-file \"$$file\") \
 				(condition-case err \
@@ -210,8 +212,10 @@ validate:
 						(message \"✓ $$file - parentheses balanced\")) \
 					(error \
 						(message \"✗ $$file: %s\" (error-message-string err)) \
-						(kill-emacs 1))))" 2>&1 | grep -E '(✓|✗)'); \
-			if [ $$? -eq 0 ]; then \
+						(kill-emacs 1))))" 2>&1); \
+			status=$$?; \
+			output=$$(printf '%s\n' "$$raw" | grep -E '(✓|✗)'); \
+			if [ $$status -eq 0 ]; then \
 				printf "$(GREEN)$$output$(NC)\n"; \
 			else \
 				printf "$(RED)$$output$(NC)\n"; \
