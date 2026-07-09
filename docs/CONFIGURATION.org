@@ -73,7 +73,50 @@ org-wild-notifier's =:WILD_NOTIFIER_NOTIFY_BEFORE:= property is honored as a dep
 (setq chime-sound-file "/path/to/chime.wav")
 #+END_SRC
 
-Chime uses Emacs's built-in =play-sound-file=. WAV and AU are the safest formats.
+WAV and AU are the safest formats.
+
+** How the sound gets played
+
+By default chime hands the file to an external player — the first of
+=pw-play=, =paplay=, =afplay= or =aplay= found on =exec-path=. That player runs
+asynchronously, so a clip never blocks Emacs, and it goes through the
+system's sound server, so it respects the default sink and the
+per-application volume.
+
+When no external player is installed, chime falls back to Emacs's built-in
+=play-sound-file=. That function opens an audio device directly and blocks
+until the clip finishes.
+
+#+BEGIN_SRC elisp
+;; Always use Emacs's built-in player
+(setq chime-sound-player 'emacs)
+
+;; Use a specific command, invoked as "COMMAND SOUND-FILE"
+(setq chime-sound-player "paplay")
+#+END_SRC
+
+An explicit command that isn't installed falls back to =play-sound-file=
+rather than failing.
+
+** Choosing a device for the built-in player
+
+=chime-sound-device= is passed to =play-sound-file= as its DEVICE argument.
+It only matters when the built-in player is in use. nil, the default, lets
+the system choose — on Linux that means ALSA's =default= PCM.
+
+Set it when =default= is unusable but a named device works. Under PipeWire
+that is usually "pipewire" or "pulse":
+
+#+BEGIN_SRC elisp
+(setq chime-sound-player 'emacs)
+(setq chime-sound-device "pipewire")
+#+END_SRC
+
+Test a candidate before committing to it:
+
+#+BEGIN_SRC elisp
+M-: (play-sound-file chime-sound-file nil "pipewire")
+#+END_SRC
 
 * Notification Icon
 

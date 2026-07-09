@@ -66,13 +66,47 @@ Check these in order:
    #+BEGIN_SRC elisp
    M-: (file-exists-p chime-sound-file)
    #+END_SRC
-3. Test sound directly:
+3. See which player chime picked:
    #+BEGIN_SRC elisp
-   M-: (play-sound-file chime-sound-file)
+   M-: (chime--find-sound-player)
    #+END_SRC
-4. Ensure your system has audio support configured.
+   A string is the external player it will spawn. nil means it falls back
+   to Emacs's built-in =play-sound-file=.
+4. Play the file the same way chime does:
+   #+BEGIN_SRC elisp
+   M-: (chime--play-sound)
+   #+END_SRC
+   A process object or t means playback started. nil means it failed, and
+   =*Messages*= carries the reason. An external player that starts and then
+   exits non-zero — an unsupported file, say — also reports to =*Messages*=.
+5. Ensure your system has audio support configured.
 
 Set =chime-sound-file= to nil to disable sound.
+
+** "No usable sound device driver found"
+
+Emacs's =play-sound-file= opens an ALSA device directly. It reports this
+error when ALSA's =default= PCM doesn't resolve, which happens on a
+PipeWire system where nothing points =pcm.!default= at the sound server.
+Confirm it outside Emacs — =aplay <file>= fails the same way — and note
+that =aplay -D pipewire <file>= usually works, which tells you the sound
+server itself is healthy.
+
+Chime avoids the problem by preferring an external player. You only reach
+this error when none of =pw-play=, =paplay=, =afplay= or =aplay= is installed,
+or when =chime-sound-player= is set to ='emacs=. Two fixes:
+
+- Name a device that resolves: =(setq chime-sound-device "pipewire")=.
+- Or repair the system so =default= routes to PipeWire. On Arch, the
+  needed config ships with =pipewire-audio= but is not enabled:
+  #+BEGIN_SRC sh
+  sudo ln -s /usr/share/alsa/alsa.conf.d/99-pipewire-default.conf /etc/alsa/conf.d/
+  #+END_SRC
+  This one repairs every ALSA client on the machine, not just Emacs.
+
+On macOS, Emacs is built without sound support, so =play-sound-file=
+signals rather than playing. Chime uses =afplay=, which ships with the OS,
+so this only bites if =chime-sound-player= is forced to ='emacs=.
 
 * Events Not Being Detected
 
