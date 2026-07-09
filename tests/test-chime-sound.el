@@ -59,6 +59,15 @@ trampoline, so tests hand the production code a real process instead.")
   "Spawn a real, immediately-exiting process to stand in for a player."
   (funcall test-chime-sound--real-start-process "chime-sound-test" nil "true"))
 
+(defun test-chime-sound--chime-messages (messages)
+  "Return only the chime-emitted entries of MESSAGES.
+A test that mocks `message' captures every message Emacs emits, not just
+chime's.  Under a coverage run the source is loaded uninstrumented and the
+sentinel lambda is compiled on first call, so a byte-compiler warning lands
+in the capture list and a bare count assertion fails.  Assert on what chime
+said, not on Emacs having said nothing."
+  (seq-filter (lambda (m) (string-prefix-p "chime:" m)) messages))
+
 ;;; Normal Cases
 
 (chime-deftest test-chime-sound-find-sound-player-auto-returns-first-available ()
@@ -235,9 +244,10 @@ synchronous `play-sound-file' path returns t instead."
         ;; The sentinel fires when the player exits, not before.
         (while (process-live-p process)
           (accept-process-output process 0 50)))
-      (should (= (length messages) 1))
-      (should (string-match-p "Failed to play sound" (car messages)))
-      (should (string-match-p "false" (car messages))))))
+      (let ((chime-messages (test-chime-sound--chime-messages messages)))
+        (should (= (length chime-messages) 1))
+        (should (string-match-p "Failed to play sound" (car chime-messages)))
+        (should (string-match-p "false" (car chime-messages)))))))
 
 (chime-deftest test-chime-sound-external-zero-exit-is-silent ()
   "A player that succeeds reports nothing."
@@ -250,7 +260,7 @@ synchronous `play-sound-file' path returns t instead."
       (let ((process (chime--play-sound)))
         (while (process-live-p process)
           (accept-process-output process 0 50)))
-      (should-not messages))))
+      (should-not (test-chime-sound--chime-messages messages)))))
 
 (chime-deftest test-chime-sound-both-players-failing-reports-once-and-does-not-signal ()
   "When both players fail, the error is reported and not propagated."
@@ -270,8 +280,9 @@ synchronous `play-sound-file' path returns t instead."
       (should-not (condition-case nil
                       (progn (chime--play-sound) nil)
                     (error t)))
-      (should (= (length messages) 1))
-      (should (string-match-p "Failed to play sound" (car messages))))))
+      (let ((chime-messages (test-chime-sound--chime-messages messages)))
+        (should (= (length chime-messages) 1))
+        (should (string-match-p "Failed to play sound" (car chime-messages)))))))
 
 (chime-deftest test-chime-sound-emacs-player-error-is-reported-not-signalled ()
   "A `play-sound-file' failure is reported and swallowed."
@@ -286,8 +297,9 @@ synchronous `play-sound-file' path returns t instead."
       (should-not (condition-case nil
                       (progn (chime--play-sound) nil)
                     (error t)))
-      (should (= (length messages) 1))
-      (should (string-match-p "Failed to play sound" (car messages))))))
+      (let ((chime-messages (test-chime-sound--chime-messages messages)))
+        (should (= (length chime-messages) 1))
+        (should (string-match-p "Failed to play sound" (car chime-messages)))))))
 
 (chime-deftest test-chime-sound-device-rejects-non-string-at-customize-time ()
   "Setting `chime-sound-device' to a non-string is rejected."
