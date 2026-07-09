@@ -36,7 +36,12 @@
   (setq chime-notification-icon nil)
   (setq chime-extra-alert-plist nil)
   ;; Use a simple test path for sound file
-  (setq chime-sound-file "/tmp/test-chime.wav"))
+  (setq chime-sound-file "/tmp/test-chime.wav")
+  ;; Route sound through `play-sound-file' so these tests mock one function
+  ;; and never spawn a real external player.  The player-selection contract
+  ;; itself is covered in test-chime-sound.el.
+  (setq chime-sound-player 'emacs)
+  (setq chime-sound-device nil))
 
 (defun test-chime-notify-teardown ()
   "Teardown function run after each test."
@@ -57,7 +62,7 @@
                    ((symbol-function 'file-exists-p) (lambda (file) t))
                    ;; Mock play-sound-file to track if called
                    ((symbol-function 'play-sound-file)
-                    (lambda (file)
+                    (lambda (&rest _)
                       (setq sound-played t)))
                    ;; Mock alert to track if called
                    ((symbol-function 'alert)
@@ -146,7 +151,7 @@
                    ;; Mock file-exists-p to return nil
                    ((symbol-function 'file-exists-p) (lambda (file) nil))
                    ((symbol-function 'play-sound-file)
-                    (lambda (file) (setq sound-played t)))
+                    (lambda (&rest _) (setq sound-played t)))
                    ((symbol-function 'alert)
                     (lambda (msg &rest args) (setq alert-called t))))
           (chime--notify "Test Event")
@@ -169,7 +174,7 @@
                    ((symbol-function 'file-exists-p) (lambda (file) t))
                    ;; Mock play-sound-file to throw error
                    ((symbol-function 'play-sound-file)
-                    (lambda (file) (error "Sound playback failed")))
+                    (lambda (&rest _) (error "Sound playback failed")))
                    ((symbol-function 'alert)
                     (lambda (msg &rest args) (setq alert-called t))))
           ;; Should not throw error

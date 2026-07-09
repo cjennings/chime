@@ -725,6 +725,59 @@ supported by your system."
   :type '(choice (const :tag "No sound" nil)
                  (file :tag "Sound file path")))
 
+(defcustom chime-sound-player 'auto
+  "How `chime-sound-file' is played.
+
+Emacs' built-in `play-sound-file' opens an ALSA device directly and
+blocks until the clip finishes.  On a system whose ALSA `default' PCM
+does not resolve -- common under PipeWire, where nothing points
+`pcm.!default' at the sound server -- it fails outright with \"No usable
+sound device driver found\".  An external player avoids both problems: it
+speaks to the sound server and it runs asynchronously.
+
+The value is one of:
+
+`auto'   Use the first available player from
+         `chime--sound-player-candidates', falling back to
+         `play-sound-file' when none is installed.  The default.
+`emacs'  Always use `play-sound-file'.
+STRING   Name or path of an external player command.  It is invoked as
+         \"COMMAND SOUND-FILE\".  Falls back to `play-sound-file' when
+         the command is not on `exec-path'."
+  :package-version '(chime . "0.8.0")
+  :group 'chime
+  :type '(choice (const :tag "Auto-detect an external player" auto)
+                 (const :tag "Emacs' built-in play-sound-file" emacs)
+                 (string :tag "External player command"))
+  :set (lambda (symbol value)
+         (unless (or (memq value '(auto emacs)) (stringp value))
+           (user-error "%s must be `auto', `emacs', or a command name, got: %S"
+                       symbol value))
+         (set-default symbol value)))
+
+(defcustom chime-sound-device nil
+  "Sound device passed to Emacs' built-in `play-sound-file'.
+
+Only consulted when `play-sound-file' is used -- that is, when
+`chime-sound-player' is `emacs', or when it is `auto' and no external
+player was found.  nil lets the system choose, which on Linux means the
+ALSA `default' PCM.
+
+Set this when `default' is unusable but a named device works.  Under
+PipeWire that is usually \"pipewire\" or \"pulse\"; test a candidate with
+
+    (play-sound-file \"/path/to/chime.wav\" nil \"pipewire\")
+
+before setting it here."
+  :package-version '(chime . "0.8.0")
+  :group 'chime
+  :type '(choice (const :tag "System default" nil)
+                 (string :tag "Device name"))
+  :set (lambda (symbol value)
+         (unless (or (null value) (stringp value))
+           (user-error "%s must be nil or a string, got: %S" symbol value))
+         (set-default symbol value)))
+
 (defcustom chime-startup-delay 10
   "Seconds to wait before first event check after chime-mode is enabled.
 This delay allows org-agenda-files and related infrastructure to finish
@@ -1838,6 +1891,71 @@ list of internal event alists."
          (chime--apply-exclude-filters)
          (-map 'chime--gather-info))))
 
+;;;; Sound Playback
+
+(defconst chime--sound-player-candidates
+  '("pw-play" "paplay" "afplay" "aplay")
+  "External player commands tried, in order, when `chime-sound-player' is `auto'.
+Each is invoked as \"COMMAND SOUND-FILE\".  Sound-server players come
+first: they respect the user's default sink and per-application volume.
+`aplay' is last because it talks to ALSA directly and so shares
+`play-sound-file''s failure mode on a system with no usable `default'
+PCM.  `afplay' is the macOS player.")
+
+(defun chime--find-sound-player ()
+  "Return the external player command to use, or nil to use `play-sound-file'.
+Honors `chime-sound-player': `emacs' selects no player, a string selects
+that command when it is installed, and `auto' picks the first installed
+candidate from `chime--sound-player-candidates'."
+  (cond
+   ((eq chime-sound-player 'emacs) nil)
+   ((stringp chime-sound-player)
+    (and (executable-find chime-sound-player) chime-sound-player))
+   (t (cl-find-if #'executable-find chime--sound-player-candidates))))
+
+(defun chime--play-sound-external (player file)
+  "Play FILE by spawning PLAYER asynchronously.
+Return the process on success, or nil if the spawn failed.  Playback
+itself is not awaited, so a clip never blocks the notification.
+
+Because the clip is not awaited, a player that starts and *then* fails --
+an unsupported file, or a device that turns out to be unusable -- can
+only be caught after the fact.  A sentinel reports that non-zero exit, so
+the failure lands in *Messages* rather than vanishing into silence."
+  (condition-case nil
+      (let ((process (start-process "chime-sound" nil player file)))
+        (set-process-query-on-exit-flag process nil)
+        (set-process-sentinel
+         process
+         (lambda (proc _event)
+           (when (memq (process-status proc) '(exit signal))
+             (let ((status (process-exit-status proc)))
+               (unless (zerop status)
+                 (message "chime: Failed to play sound: %s exited with status %s"
+                          player status))))))
+        process)
+    (error nil)))
+
+(defun chime--play-sound ()
+  "Play `chime-sound-file', when one is configured and present.
+Prefer an external player and fall back to Emacs' `play-sound-file'.
+A playback failure is reported but never signalled -- losing the sound
+must not cost the user the visual notification.
+
+Return the player process when an external player was used, t when Emacs
+played the file, and nil when nothing was played."
+  (when (and chime-sound-file (file-exists-p chime-sound-file))
+    (let* ((player (chime--find-sound-player))
+           (process (and player
+                         (chime--play-sound-external player chime-sound-file))))
+      (or process
+          (condition-case err
+              (progn (play-sound-file chime-sound-file nil chime-sound-device) t)
+            (error
+             (message "chime: Failed to play sound: %s"
+                      (error-message-string err))
+             nil))))))
+
 ;;;; Notification Dispatch
 
 (defun chime--notify (msg-severity)
@@ -1847,13 +1965,7 @@ notification text and SEVERITY is one of high, medium, or low."
   (let* ((event-msg (if (consp msg-severity) (car msg-severity) msg-severity))
          (severity (if (consp msg-severity) (cdr msg-severity) 'medium)))
     ;; Play sound if a file is configured (set chime-sound-file to nil to disable)
-    (when chime-sound-file
-      (condition-case err
-          (when (file-exists-p chime-sound-file)
-            (play-sound-file chime-sound-file))
-        (error
-         (message "chime: Failed to play sound: %s"
-                  (error-message-string err)))))
+    (chime--play-sound)
     ;; Show visual notification
     (apply
      'alert event-msg
