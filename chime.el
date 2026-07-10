@@ -1982,14 +1982,22 @@ notification text and SEVERITY is one of high, medium, or low."
          (severity (if (consp msg-severity) (cdr msg-severity) 'medium)))
     ;; Play sound if a file is configured (set chime-sound-file to nil to disable)
     (chime--play-sound)
-    ;; Show visual notification
-    (apply
-     'alert event-msg
-     :icon chime-notification-icon
-     :title chime-notification-title
-     :severity severity
-     :category 'chime
-     chime-extra-alert-plist)))
+    ;; Show visual notification.  `chime--process-notifications' maps this
+    ;; over every due event, so an alert that signals -- a dbus error, a
+    ;; misbehaving notification daemon -- would drop every notification
+    ;; after it and be miscounted as a fetch failure by the caller's
+    ;; condition-case.  Guard each event's alert on its own.
+    (condition-case err
+        (apply
+         'alert event-msg
+         :icon chime-notification-icon
+         :title chime-notification-title
+         :severity severity
+         :category 'chime
+         chime-extra-alert-plist)
+      (error
+       (message "chime: Failed to show notification: %s"
+                (error-message-string err))))))
 
 ;;;; Timestamp Parsing
 
