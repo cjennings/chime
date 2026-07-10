@@ -68,6 +68,25 @@ in the capture list and a bare count assertion fails.  Assert on what chime
 said, not on Emacs having said nothing."
   (seq-filter (lambda (m) (string-prefix-p "chime:" m)) messages))
 
+(defun test-chime-sound--await-exit (process &optional until)
+  "Wait for PROCESS to exit and for its sentinel to have run.
+UNTIL, when given, is polled after each turn of the event loop; waiting
+stops as soon as it returns non-nil.
+
+`process-live-p' goes nil the moment the child exits, but the sentinel is
+queued and runs on a *later* turn of the event loop.  A test that stops
+waiting at process death therefore lets the sentinel's message land inside
+the next test's `message' mock.  That is not hypothetical: it put \"false
+exited with status 1\" into the silent-player test under a coverage run,
+where instrumentation slowed things just enough to expose the race."
+  (while (process-live-p process)
+    (accept-process-output process 0 50))
+  (let ((deadline (time-add (current-time)
+                            (seconds-to-time (if until 2 0.3)))))
+    (while (and (time-less-p (current-time) deadline)
+                (not (and until (funcall until))))
+      (accept-process-output nil 0 20))))
+
 ;;; Normal Cases
 
 (chime-deftest test-chime-sound-find-sound-player-auto-returns-first-available ()
@@ -241,9 +260,10 @@ synchronous `play-sound-file' path returns t instead."
                (lambda (fmt &rest args) (push (apply #'format fmt args) messages))))
       (let ((process (chime--play-sound)))
         (should (processp process))
-        ;; The sentinel fires when the player exits, not before.
-        (while (process-live-p process)
-          (accept-process-output process 0 50)))
+        ;; The sentinel fires after the player exits, on a later turn of the
+        ;; event loop -- wait for the message, not merely for the exit.
+        (test-chime-sound--await-exit
+         process (lambda () (test-chime-sound--chime-messages messages))))
       (let ((chime-messages (test-chime-sound--chime-messages messages)))
         (should (= (length chime-messages) 1))
         (should (string-match-p "Failed to play sound" (car chime-messages)))
@@ -258,8 +278,9 @@ synchronous `play-sound-file' path returns t instead."
     (cl-letf (((symbol-function 'message)
                (lambda (fmt &rest args) (push (apply #'format fmt args) messages))))
       (let ((process (chime--play-sound)))
-        (while (process-live-p process)
-          (accept-process-output process 0 50)))
+        ;; Drain the sentinel too, so a late message can't slip past the
+        ;; assertion and into the next test.
+        (test-chime-sound--await-exit process))
       (should-not (test-chime-sound--chime-messages messages)))))
 
 (chime-deftest test-chime-sound-both-players-failing-reports-once-and-does-not-signal ()
