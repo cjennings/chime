@@ -221,5 +221,48 @@
           (should alert-called)))
     (test-chime-notify-teardown)))
 
+(ert-deftest test-chime-notify-alert-error-does-not-propagate ()
+  "An `alert' failure is reported, not signalled.
+`chime--process-notifications' maps `chime--notify' over every due event, so
+an alert that signals (a dbus error, say) would drop every remaining
+notification in the batch and be miscounted as a fetch failure."
+  (test-chime-notify-setup)
+  (unwind-protect
+      (let ((messages nil))
+        (cl-letf (((symbol-function 'chime--play-sound) (lambda () nil))
+                  ((symbol-function 'alert)
+                   (lambda (&rest _) (error "Dbus is having a bad day")))
+                  ((symbol-function 'message)
+                   (lambda (fmt &rest args) (push (apply #'format fmt args) messages))))
+          (should-not (condition-case nil
+                          (progn (chime--notify "Test Event") nil)
+                        (error t)))
+          (let ((chime-messages
+                 (seq-filter (lambda (m) (string-prefix-p "chime:" m)) messages)))
+            (should (= (length chime-messages) 1))
+            (should (string-match-p "Failed to show notification" (car chime-messages))))))
+    (test-chime-notify-teardown)))
+
+(ert-deftest test-chime-notify-alert-error-does-not-stop-the-batch ()
+  "One event's alert failure does not drop the notifications after it."
+  (test-chime-notify-setup)
+  (unwind-protect
+      (let ((delivered nil))
+        (cl-letf (((symbol-function 'chime--play-sound) (lambda () nil))
+                  ((symbol-function 'chime--current-time-is-day-wide-time)
+                   (lambda () nil))
+                  ((symbol-function 'chime--check-event)
+                   (lambda (event) (list event)))
+                  ((symbol-function 'alert)
+                   (lambda (msg &rest _)
+                     (if (equal msg "second")
+                         (error "Dbus is having a bad day")
+                       (push msg delivered))))
+                  ((symbol-function 'message) (lambda (&rest _) nil)))
+          (chime--process-notifications (list "first" "second" "third"))
+          ;; The failing middle event must not cost us the third.
+          (should (equal (nreverse delivered) (list "first" "third")))))
+    (test-chime-notify-teardown)))
+
 (provide 'test-chime-notify)
 ;;; test-chime-notify.el ends here
