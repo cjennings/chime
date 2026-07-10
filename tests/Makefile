@@ -154,17 +154,22 @@ test-unit: check-deps
 # Run only integration tests (excluding :slow)
 test-integration: check-deps
 	@printf "$(YELLOW)Running integration tests ($(words $(INTEGRATION_TESTS)) files, excluding :slow)...$(NC)\n"
-	@failed=0; \
+	@failed=0; ran=0; \
 	for testfile in $(INTEGRATION_TESTS); do \
 		echo "  Testing $$testfile..."; \
-		$(EMACS_BATCH) -l ert -l "$$testfile" \
-			--eval "$(ERT_FAST_SELECTOR)" || failed=$$((failed + 1)); \
+		out=$$($(EMACS_BATCH) -l ert -l "$$testfile" \
+			--eval "$(ERT_FAST_SELECTOR)" 2>&1) || failed=$$((failed + 1)); \
+		printf '%s\n' "$$out"; \
+		n=$$(printf '%s\n' "$$out" | sed -n 's/^Ran \([0-9][0-9]*\) tests.*/\1/p' | tail -1); \
+		ran=$$((ran + $${n:-0})); \
 	done; \
-	if [ $$failed -eq 0 ]; then \
-		printf "$(GREEN)[✓] All integration tests passed$(NC)\n"; \
-	else \
+	if [ $$failed -gt 0 ]; then \
 		printf "$(RED)[✗] $$failed integration test file(s) failed$(NC)\n"; \
 		exit 1; \
+	elif [ $$ran -eq 0 ]; then \
+		printf "$(YELLOW)[i] Integration tests skipped: every one is tagged :slow. Run 'make test-all'.$(NC)\n"; \
+	else \
+		printf "$(GREEN)[✓] All integration tests passed ($$ran tests)$(NC)\n"; \
 	fi
 
 # Run tests matching a name pattern (ERT selector)
