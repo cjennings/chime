@@ -21,32 +21,39 @@
 (require 'test-bootstrap (expand-file-name "test-bootstrap.el"))
 (require 'cl-lib)
 
-(ert-deftest test-chime-stop-interrupts-running-process ()
-  "Normal: when chime--process is set, `chime--stop' interrupts it and clears the var."
-  (let ((interrupted nil)
+(ert-deftest test-chime-stop-kills-running-process ()
+  "Normal: when chime--process is set, `chime--stop' kills it and clears the var.
+The child is killed rather than interrupted, because SIGINT is a request a
+child stuck in a blocking read can ignore."
+  (let ((killed nil)
         (chime--timer nil)
         (chime--process 'fake-process)
+        (chime--process-generation 0)
         (chime--validation-done t)
         (chime--validation-retry-count 5))
-    (cl-letf (((symbol-function 'interrupt-process)
-               (lambda (proc) (setq interrupted proc))))
+    (cl-letf (((symbol-function 'chime--kill-async-process)
+               (lambda (proc) (setq killed proc))))
       (chime--stop))
-    (should (eq 'fake-process interrupted))
+    (should (eq 'fake-process killed))
     (should (null chime--process))
+    ;; The abandoned child's callback is orphaned.
+    (should (= 1 chime--process-generation))
     (should-not chime--validation-done)
     (should (= 0 chime--validation-retry-count))))
 
-(ert-deftest test-chime-stop-no-process-skips-interrupt ()
-  "Boundary: with chime--process nil, `interrupt-process' is never called."
-  (let ((interrupted nil)
+(ert-deftest test-chime-stop-no-process-kills-nothing ()
+  "Boundary: with chime--process nil, no process is killed."
+  (let ((killed 'untouched)
         (chime--timer nil)
         (chime--process nil)
+        (chime--process-generation 0)
         (chime--validation-done t)
         (chime--validation-retry-count 5))
-    (cl-letf (((symbol-function 'interrupt-process)
-               (lambda (proc) (setq interrupted proc))))
+    (cl-letf (((symbol-function 'chime--kill-async-process)
+               (lambda (proc) (setq killed proc))))
       (chime--stop))
-    (should (null interrupted))
+    ;; chime--stop calls the helper unconditionally; it must tolerate nil.
+    (should (null killed))
     (should-not chime--validation-done)
     (should (= 0 chime--validation-retry-count))))
 

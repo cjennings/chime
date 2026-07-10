@@ -86,34 +86,40 @@ Interruption requires strictly exceeding the timeout."
     (should-not interrupted)
     (should-not spawned)))
 
-(ert-deftest test-chime-fetch-and-process-stale-child-interrupted-and-respawned ()
-  "Error: an over-age child is interrupted, recorded as a failure, replaced.
+(ert-deftest test-chime-fetch-and-process-stale-child-killed-and-respawned ()
+  "Error: an over-age child is killed, recorded as a failure, replaced.
 The hung child must feed the existing consecutive-failures machinery (via
 `chime--record-async-failure') instead of silently blocking every tick, and
-the same tick spawns a fresh child."
+the same tick spawns a fresh child.
+
+The child is killed rather than interrupted: SIGINT is a request a child
+stuck in a blocking read can ignore."
   (let* ((now (current-time))
-         (interrupted nil)
+         (killed nil)
          (recorded nil)
          (spawned nil)
          (chime--process 'fake-live-process)
          (chime--process-start-time (time-subtract now (seconds-to-time 121)))
+         (chime--process-generation 0)
          (chime-async-timeout 120))
     (cl-letf (((symbol-function 'current-time) (lambda () now))
               ((symbol-function 'process-live-p)
                (lambda (proc) (eq proc 'fake-live-process)))
-              ((symbol-function 'interrupt-process)
-               (lambda (proc) (setq interrupted proc)))
+              ((symbol-function 'chime--kill-async-process)
+               (lambda (proc) (setq killed proc)))
               ((symbol-function 'chime--record-async-failure)
                (lambda (err prefix) (setq recorded (cons prefix err))))
               ((symbol-function 'async-start)
                (lambda (&rest _) (setq spawned t) 'new-fake-process)))
-      (chime--fetch-and-process (lambda (_events) nil)))
-    (should (eq 'fake-live-process interrupted))
-    (should (equal "Async watchdog" (car recorded)))
-    (should (string-match-p "chime-async-timeout"
-                            (error-message-string (cdr recorded))))
-    (should spawned)
-    (should (eq 'new-fake-process chime--process))))
+      (chime--fetch-and-process (lambda (_events) nil))
+      (should (eq 'fake-live-process killed))
+      (should (equal "Async watchdog" (car recorded)))
+      (should (string-match-p "chime-async-timeout"
+                              (error-message-string (cdr recorded))))
+      (should spawned)
+      (should (eq 'new-fake-process chime--process))
+      ;; One bump for abandoning the stale child, one for the replacement.
+      (should (= chime--process-generation 2)))))
 
 (ert-deftest test-chime-fetch-and-process-nil-timeout-disables-watchdog ()
   "Boundary: `chime-async-timeout' nil disables the watchdog entirely.

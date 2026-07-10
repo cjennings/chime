@@ -914,6 +914,14 @@ you theme it."
 Consulted by the watchdog in `chime--fetch-and-process' to detect a
 child that exceeded `chime-async-timeout'.")
 
+(defvar chime--process-generation 0
+  "Counter identifying the current async child.
+Incremented on every spawn, and on every event that abandons a child (the
+watchdog interrupt, and `chime--stop').  Each child's callback captures the
+generation it was spawned under and compares it here, so a straggler that
+returns after its child was abandoned can be discarded rather than clobber
+the replacement child's state.")
+
 (defvar chime--consecutive-async-failures 0
   "Count of consecutive async check failures.
 After `chime-max-consecutive-failures' failures, a warning is displayed.")
@@ -2381,12 +2389,18 @@ When called programmatically, returns structured validation results."
 ;;;; Core Lifecycle
 
 (defun chime--stop ()
-  "Stop the notification timer and cancel any in-progress check."
+  "Stop the notification timer and cancel any in-progress check.
+Leaves no state behind: a later `chime-mode' must not resume with the old
+failure count, a stale spawn time, or a callback from the child this stop
+abandoned."
   (-some-> chime--timer (cancel-timer))
   (setq chime--timer nil)
-  (when chime--process
-    (interrupt-process chime--process)
-    (setq chime--process nil))
+  (chime--kill-async-process chime--process)
+  (setq chime--process nil)
+  (setq chime--process-start-time nil)
+  ;; Orphan the abandoned child's callback, if it is still in flight.
+  (cl-incf chime--process-generation)
+  (setq chime--consecutive-async-failures 0)
   ;; Reset validation state so it runs again on next start
   (setq chime--validation-done nil)
   (setq chime--validation-retry-count 0))
@@ -2479,15 +2493,40 @@ deprecated per-event property."
   (chime--maybe-warn-deprecated-properties events)
   (funcall callback events))
 
+(defun chime--kill-async-process (process)
+  "Kill PROCESS and reap the buffer async.el leaves behind.
+Does nothing when PROCESS is nil or already dead.
+
+`interrupt-process' only asks: a child stuck in a blocking read ignores
+SIGINT and survives as a zombie, invisible because `chime--process' has
+already been cleared.  `delete-process' does not ask.
+
+async.el's sentinel kills the child's process buffer only on a zero exit,
+so a signalled child leaks its buffer.  A persistent hang leaks one per
+`chime-async-timeout' until Emacs restarts, which is why the buffer is
+killed here rather than left to async.  The sentinel is silenced first so
+async cannot act on a child we have already abandoned."
+  (when (processp process)
+    (let ((buffer (process-buffer process)))
+      (set-process-sentinel process #'ignore)
+      (when (process-live-p process)
+        (delete-process process))
+      (when (buffer-live-p buffer)
+        (kill-buffer buffer)))))
+
 (defun chime--interrupt-stale-process ()
-  "Interrupt an async child that has outlived `chime-async-timeout'.
+  "Kill an async child that has outlived `chime-async-timeout'.
 A child that never returns (e.g. stuck on an interactive prompt in batch
 mode) is invisible to every failure path — it returns no error sexp, so
 `chime--consecutive-async-failures' never increments while the overlap
-guard silently skips every subsequent check.  Interrupting it and
-recording the timeout through `chime--record-async-failure' routes the
-hang into the existing failure machinery and frees the next check to
-spawn a fresh child.  Does nothing when `chime-async-timeout' is nil."
+guard silently skips every subsequent check.  Killing it and recording the
+timeout through `chime--record-async-failure' routes the hang into the
+existing failure machinery and frees the next check to spawn a fresh
+child.  Does nothing when `chime-async-timeout' is nil.
+
+Bumping `chime--process-generation' orphans the abandoned child's
+callback, so a straggler that returns just past the timeout cannot clobber
+the replacement child's state."
   (when (and chime-async-timeout
              chime--process
              (process-live-p chime--process)
@@ -2495,38 +2534,54 @@ spawn a fresh child.  Does nothing when `chime-async-timeout' is nil."
              (> (float-time (time-subtract (current-time)
                                            chime--process-start-time))
                 chime-async-timeout))
-    (interrupt-process chime--process)
+    (chime--kill-async-process chime--process)
     (setq chime--process nil)
+    (setq chime--process-start-time nil)
+    (cl-incf chime--process-generation)
     (chime--record-async-failure
      (list 'error (format "Async fetch exceeded chime-async-timeout (%ds)"
                           chime-async-timeout))
      "Async watchdog")))
 
+(defun chime--handle-async-result (generation callback events)
+  "Handle EVENTS returned by the async child spawned under GENERATION.
+CALLBACK receives the events on success.
+
+Discards the result when GENERATION is no longer current — the child was
+abandoned by the watchdog or by `chime--stop', and a replacement may
+already be running.  Acting on a straggler would clear the replacement's
+process handle (breaking the overlap guard, so a third child could spawn)
+and reset the failure counter the watchdog had just incremented."
+  (when (= generation chime--process-generation)
+    (setq chime--process nil)
+    (setq chime--process-start-time nil)
+    (setq chime--last-check-time (current-time))
+    (condition-case err
+        (if (and (listp events)
+                 (eq (car events) 'async-signal))
+            (chime--record-async-failure (cdr events) "Async error")
+          (chime--handle-async-success callback events))
+      (error
+       (chime--record-async-failure err "Error processing events")))))
+
 (defun chime--fetch-and-process (callback)
   "Asynchronously fetch events from agenda and invoke CALLBACK with them.
 Manages async process state and last-check-time internally.
 Does nothing if a check is already in progress, unless that check has
-exceeded `chime-async-timeout' — then it is interrupted and replaced."
+exceeded `chime-async-timeout' — then it is killed and replaced."
   (chime--interrupt-stale-process)
   (unless (and chime--process
                (process-live-p chime--process))
     (setq chime--process-start-time (current-time))
-    (setq chime--process
-          (let ((default-directory user-emacs-directory)
-                (async-prompt-for-password nil)
-                (async-process-noquery-on-exit t))
-            (async-start
-             (chime--retrieve-events)
-             (lambda (events)
-               (setq chime--process nil)
-               (setq chime--last-check-time (current-time))
-               (condition-case err
-                   (if (and (listp events)
-                            (eq (car events) 'async-signal))
-                       (chime--record-async-failure (cdr events) "Async error")
-                     (chime--handle-async-success callback events))
-                 (error
-                  (chime--record-async-failure err "Error processing events")))))))))
+    (let ((generation (cl-incf chime--process-generation)))
+      (setq chime--process
+            (let ((default-directory user-emacs-directory)
+                  (async-prompt-for-password nil)
+                  (async-process-noquery-on-exit t))
+              (async-start
+               (chime--retrieve-events)
+               (lambda (events)
+                 (chime--handle-async-result generation callback events))))))))
 
 (defun chime--log-silently (format-string &rest args)
   "Append formatted message to *Messages* buffer without echoing.
